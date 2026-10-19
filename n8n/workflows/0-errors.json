@@ -1,0 +1,177 @@
+{
+  "name": "Leads · 0 Errors",
+  "nodes": [
+    {
+      "id": "64ae829c-0640-419a-a523-53366a548ef5",
+      "name": "On workflow error",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "56fe8a08-2b09-4748-a858-110ee6cee184",
+      "name": "Config",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// ΡΥΘΜΙΣΕΙΣ: άλλαξε μόνο τις τιμές εδώ.\n// alert_email:     πού έρχονται τα alerts σφαλμάτων (μόνο σφάλματα, τίποτα άλλο)\n// healthcheck_url: ping URL από το healthchecks.io (κενό = απενεργοποιημένο)\nreturn [{ json: { alert_email: 'ΒΑΛΕ-ΤΟ-EMAIL-ΣΟΥ@example.com' } }];"
+      }
+    },
+    {
+      "id": "c5af4503-3727-45ae-acf4-0ddaf3164a34",
+      "name": "Format",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const e = $('On workflow error').first().json;\nconst wf = e.workflow?.name || 'unknown workflow';\nconst node = e.execution?.lastNodeExecuted || 'unknown node';\nconst msg = e.execution?.error?.message || e.trigger?.error?.message || 'unknown error';\nreturn [{ json: {\n  key: 'n8n_error:' + wf + ':' + node,\n  subject: 'Σφάλμα στο \"' + wf + '\" (' + node + ')',\n  text: msg + '\\n\\nExecution: ' + (e.execution?.url || e.execution?.id || '-'),\n} }];"
+      }
+    },
+    {
+      "id": "9e179977-40b6-4e0b-a1ab-9ab6f82c3745",
+      "name": "Not sent recently?",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        780,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "select $1::text as key, $2::text as subject, $3::text as body, leads.ops_alert_should_send($1, interval '1 hour') as send",
+        "options": {
+          "queryBatching": "independently",
+          "queryReplacement": "={{ [$json.key ?? null, $json.subject ?? null, $json.text ?? null] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "REPLACE_POSTGRES",
+          "name": "Leads Supabase"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "1e7bd392-7da3-427a-a40d-ac90aa58f001",
+      "name": "Only new alerts",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// Αν η βάση δεν απαντάει, στέλνουμε έτσι κι αλλιώς.\nreturn $input.all().filter((i) => i.json.send !== false).map((i, n) => ({ json: {\n  subject: i.json.subject || $('Format').first().json.subject,\n  body: i.json.body || $('Format').first().json.text,\n} }));"
+      }
+    },
+    {
+      "id": "b901d077-bb20-4bcc-aca4-0d702624a4cf",
+      "name": "Email alert",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1300,
+        0
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $('Config').first().json.alert_email }}",
+        "subject": "=[Leads] {{ $json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_GMAIL",
+          "name": "Leads Gmail"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "On workflow error": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "Format",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format": {
+      "main": [
+        [
+          {
+            "node": "Not sent recently?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Not sent recently?": {
+      "main": [
+        [
+          {
+            "node": "Only new alerts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only new alerts": {
+      "main": [
+        [
+          {
+            "node": "Email alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "all"
+  },
+  "pinData": {},
+  "active": false
+}

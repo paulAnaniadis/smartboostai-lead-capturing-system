@@ -1,6 +1,6 @@
-import { createHash } from 'node:crypto';
 import { parsePhoneNumberFromString } from 'libphonenumber-js/max';
 import { nameTokens, stripAccents } from './translit.js';
+import { sha256Hex } from './sha256.js';
 
 // ---------------------------------------------------------------------------
 // Τηλέφωνα → E.164. Ό,τι δεν επικυρώνεται δεν «μαντεύεται»: πάει στα unparsed.
@@ -97,7 +97,7 @@ export function normalizeName({ name, first_name, last_name }) {
 
 export function messageHash(message) {
   const normalized = stripAccents(String(message ?? '').toLowerCase()).replace(/\s+/g, ' ').trim();
-  return createHash('sha256').update(normalized, 'utf8').digest('hex');
+  return sha256Hex(normalized);
 }
 
 // ---------------------------------------------------------------------------

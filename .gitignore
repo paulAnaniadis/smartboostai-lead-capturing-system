@@ -19,3 +19,4 @@ _checkouts/
 # node
 node_modules/
 .env
+n8n/build/

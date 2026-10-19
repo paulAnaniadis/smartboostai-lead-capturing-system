@@ -58,3 +58,18 @@ test('παραλήπτης: plus-address από To όταν λείπει το De
   assert.equal(findLeadRecipient({ headers: { to: 'X <LEADS+Kalogirou@example.com>' } }), 'leads+kalogirou@example.com');
   assert.equal(findLeadRecipient({ headers: { to: 'info@example.com' } }), null);
 });
+
+test('αποκωδικοποίηση χωρίς TextDecoder (sandbox του n8n): utf-8, iso-8859-7, windows-1253', async () => {
+  const { decodeBytes, base64UrlToBytes } = await import('../src/bytes.js');
+  const saved = globalThis.TextDecoder;
+  globalThis.TextDecoder = undefined;
+  try {
+    assert.equal(decodeBytes(Buffer.from('Γειά σου 😀', 'utf8'), 'utf-8'), 'Γειά σου 😀');
+    assert.equal(decodeBytes(iso88597, 'iso-8859-7'), 'Όνομα: Άννα');
+    // windows-1253: το «Ά» είναι 0xA2 αντί για 0xB6
+    assert.equal(decodeBytes(Buffer.from([0xa2, 0xed, 0xed, 0xe1, 0x96]), 'windows-1253'), 'Άννα–');
+  } finally {
+    globalThis.TextDecoder = saved;
+  }
+  assert.deepEqual([...base64UrlToBytes(b64url('ab?>'))], [...Buffer.from('ab?>')]);
+});

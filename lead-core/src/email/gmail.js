@@ -2,15 +2,9 @@
 // που αποθηκεύεται στο raw_events. Τα attachments δεν αποθηκεύονται, μόνο τα ονόματά τους.
 
 import { extractAddresses } from './text.js';
+import { base64UrlToBytes, decodeBytes } from '../bytes.js';
 
-function decodeBase64Url(data, charset) {
-  const buf = Buffer.from(String(data).replace(/-/g, '+').replace(/_/g, '/'), 'base64');
-  try {
-    return new TextDecoder(charset || 'utf-8').decode(buf);
-  } catch {
-    return new TextDecoder('utf-8').decode(buf);
-  }
-}
+const decodeBase64Url = (data, charset) => decodeBytes(base64UrlToBytes(data), charset);
 
 const headerList = (part) => part?.headers ?? [];
 const header = (part, name) =>

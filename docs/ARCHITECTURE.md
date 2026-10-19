@@ -9,7 +9,8 @@
 | Θέμα | Απόφαση |
 |---|---|
 | Φάσεις | **Φάση 1:** email (website forms και portals). **Φάση 2:** FB Lead Ads. **Φάση 3:** WhatsApp. Το schema σχεδιάζεται από τώρα για όλες, αλλά υλοποιείται μόνο ό,τι χρειάζεται η Φάση 1. |
-| Hosting | n8n self-hosted (Docker σε VPS). Supabase (Pro) με μία κοινή Postgres για όλους τους πελάτες. |
+| Hosting | Το υπάρχον self-hosted n8n στο VPS της Hostinger. Supabase (Pro) με μία κοινή Postgres για όλους τους πελάτες. |
+| Ειδοποιήσεις προς εσένα | **Μόνο σφάλματα.** Όταν όλα δουλεύουν δεν λαμβάνεις τίποτα. Δεν υπάρχει ημερήσιο report. |
 | WhatsApp | Coexistence: ο αριθμός μένει στο WhatsApp Business app και οι agents απαντάνε κανονικά. Το σύστημα απλώς διαβάζει τα εισερχόμενα μέσω webhook. Ταξινομεί από το 1ο μήνυμα, και από το 2ο μόνο αν χρειαστεί. Δεν στέλνει τίποτα. |
 | Review queue και ειδοποιήσεις | Δύο διαφορετικά πράγματα. **Review queue:** πίνακας με αποφάσεις που περιμένουν άνθρωπο (§8). **Ειδοποιήσεις:** μηνύματα ότι κάτι συνέβη, σε τρεις τύπους με διαφορετικούς παραλήπτες (§9). |
 
@@ -43,7 +44,6 @@ outbox → email στον agent (+ Google Sheet προαιρετικά)
 
 W4 sweeper (5')     : ξαναπιάνει pending/failed/stuck-processing, outbox που έμειναν
 W5 heartbeat (ημερ.): σιωπή ανά πελάτη/πηγή → alert
-W6 daily report     : κάθε μέρα, ακόμα κι αν όλα είναι καλά
 W7 retention (εβδ.) : καθάρισμα payloads > 12 μηνών
 healthchecks.io     : εξωτερικό dead-man's-switch για το ίδιο το n8n
 ```
@@ -155,7 +155,7 @@ Partial unique `(kind, raw_event_id) WHERE status='open'`, ώστε να μη δ
 | `resolve_review(id, action, data)` | §8 |
 | `merge_contacts(survivor, merged)` | Μεταφέρει identifiers και inquiries και βάζει `merged_into`. Γίνεται μόνο από άνθρωπο. |
 | `erase_contact(contact_id)` | GDPR: σβήνει contact, identifiers, inquiries και τα payloads των σχετικών raw events. |
-| `heartbeat_report()`, `daily_report()` | Επιστρέφουν έτοιμα δεδομένα για W5/W6. |
+| `heartbeat_report()`, `daily_report()` | Επιστρέφουν έτοιμα δεδομένα για το Monitor workflow (το `daily_report` χρησιμοποιείται μόνο για τα dead counts). |
 | `ops_alert_should_send(key)` | Αποφασίζει αν στέλνεται alert (dedup). |
 
 ---
@@ -326,7 +326,7 @@ claim_raw_events(10)
 
 - Το `ingest_manual` καλεί το `ingest_lead` με τα διορθωμένα δεδομένα. Το raw μένει όπως ήρθε, και η διόρθωση καταγράφεται στο `resolution`.
 - **Ποιος το δουλεύει:** εσύ, στη Φάση 1. Μέσα από Supabase Studio, με saved views (`open_reviews`) και κλήσεις του `resolve_review`. Ένα μικρό UI αξίζει όταν ο όγκος το δικαιολογήσει.
-- Τα **blocking items παλαιότερα από 4 ώρες** στέλνουν alert, γιατί μπορεί να είναι πραγματικό lead που περιμένει. Τα non-blocking εμφανίζονται μόνο στο daily report.
+- Τα **blocking items παλαιότερα από 4 ώρες** στέλνουν alert, γιατί μπορεί να είναι πραγματικό lead που περιμένει. Τα non-blocking (possible_merge, name_mismatch) δεν στέλνουν alert. Ο agent τα βλέπει ως σημείωση στο email του lead και τα κοιτάς όταν θες.
 
 ---
 
@@ -335,8 +335,8 @@ claim_raw_events(10)
 | τύπος | παραλήπτης | πότε | κανάλι |
 |---|---|---|---|
 | **Lead notification** | agent του πελάτη | νέο inquiry (μέσω outbox) | email (+ Sheet) |
-| **Ops alert** | εσύ | κάτι χάλασε ή θέλει ανθρώπινη ματιά τώρα | Telegram bot (**υπόθεση**). Fallback: email |
-| **Daily report** | εσύ | κάθε μέρα 09:00 Europe/Athens, ακόμα κι αν όλα είναι καλά | ίδιο κανάλι με τα alerts |
+| **Ops alert** | εσύ | **μόνο** όταν κάτι χάλασε ή θέλει ανθρώπινη ματιά | email (από το lead mailbox) |
+| **Healthcheck** | εσύ | μόνο αν σταματήσει να τρέχει το n8n | healthchecks.io (εξωτερικό) |
 
 **Ops alerts** (το πολύ ένα τη μέρα για το ίδιο key, μέσω `ops_alerts`):
 - raw ή outbox σε `dead`
@@ -345,10 +345,8 @@ claim_raw_events(10)
 - blocking review παλαιότερο από 4 ώρες
 - σφάλμα auth στο Gmail (λήξη ή ανάκληση του OAuth)
 
-**Daily report:** για το τελευταίο 24ωρο, ανά πελάτη και πηγή, τα νέα inquiries, τα touches και τα returning. Επίσης ανοιχτά reviews (blocking / non-blocking), dead items, και η τελευταία φορά που ήρθε κάτι από κάθε route.
-
-**Dead-man's switch** (healthchecks.io, δωρεάν): το daily report σε Telegram δεν είναι αρκετό, γιατί αν πέσει το n8n δεν θα θυμηθείς να το ψάξεις. Γι' αυτό:
-- Το W1 κάνει ping μετά από κάθε επιτυχημένο run (grace 15'), και το W6 κάνει ping μία φορά τη μέρα.
+**Dead-man's switch** (healthchecks.io, δωρεάν): αν πέσει το ίδιο το n8n, κανένα workflow δεν μπορεί να στείλει alert. Γι' αυτό ο έλεγχος γίνεται από έξω:
+- Τα workflows Capture και Process κάνουν ping σε κάθε run (period 1', grace 15').
 - Αν σταματήσουν τα pings, το healthchecks.io σε ειδοποιεί **απ' έξω**.
 - Αυτό πιάνει πτώση του VPS, πτώση του n8n και σπασμένο Gmail auth.
 
@@ -360,7 +358,7 @@ claim_raw_events(10)
 - Υπολογίζεται `now() − max(raw_events.occurred_at)` για το συγκεκριμένο route.
 - Αν ξεπερνάει το όριο → alert «καμία εγγραφή από <πηγή> για <πελάτη> εδώ και N μέρες».
 
-Το όριο ορίζεται στο στήσιμο από τον όγκο που αναφέρει ο πελάτης, και ρυθμίζεται μετά από 2–3 εβδομάδες πραγματικών δεδομένων. Αν ένα route δεν έχει όριο, δεν ελέγχεται, και αυτό φαίνεται στο daily report.
+Το όριο ορίζεται στο στήσιμο από τον όγκο που αναφέρει ο πελάτης, και ρυθμίζεται μετά από 2–3 εβδομάδες πραγματικών δεδομένων. Αν ένα route δεν έχει όριο, δεν ελέγχεται.
 
 ---
 
@@ -381,7 +379,7 @@ claim_raw_events(10)
 
 ## 12. Hosting
 
-- **VPS:** μικρό (π.χ. Hetzner 2 vCPU / 4 GB, περίπου €5–8/μήνα). Docker compose με n8n, τη Postgres του n8n και Caddy.
+- **VPS:** το υπάρχον n8n στη Hostinger. Δεν χρειάζεται καμία αλλαγή στον server: ο κώδικας του lead-core μπαίνει αυτούσιος στα Code nodes (bundle).
 - **Supabase Pro:** ένα project για όλους τους πελάτες, με ημερήσια backups. Η τιμή ανεβαίνει με το compute και όχι με τον αριθμό πελατών. Οι τρέχουσες τιμές να επιβεβαιωθούν πριν το στήσιμο.
 - **Μονό σημείο αποτυχίας είναι το VPS.** Ανά φάση:
   - **Email:** ανεκτικό. Το mailbox λειτουργεί ως buffer, και το W1 μαζεύει τα 30 τελευταία 24ωρα όταν ξανανέβει.
@@ -447,7 +445,7 @@ n8n/workflows/                ← exported workflows (W1–W7)
 1. **Schema και functions** (migrations), με tests για όλα τα σενάρια του §6: 0/1/2 matches, παράθυρο, returning, reprocess, placeholder, ταυτόχρονα ingestions.
 2. **lead-core:** normalization + generic parser + tests.
 3. **Fixtures και parsers** ανά portal και ανά φόρμα του πρώτου πελάτη.
-4. **n8n infra** (VPS, compose, backups, healthchecks.io).
+4. **n8n infra:** healthchecks.io και credentials. Οδηγός στο `docs/SETUP.md`.
 5. **Workflows W1–W7.**
 6. **Στήσιμο πελάτη:**
    - `clients`, `source_accounts`, `email_routes`
@@ -461,5 +459,6 @@ n8n/workflows/                ← exported workflows (W1–W7)
 - Ποιος είναι ο πρώτος πελάτης, ποια portals χρησιμοποιεί και ποιο plugin φόρμας έχει το site.
 - **Πραγματικά emails** (τουλάχιστον 3 ανά portal και ανά φόρμα, ανωνυμοποιημένα αν θες). Χωρίς αυτά οι parsers δεν μπορούν να γραφτούν σωστά.
 - Gmail: νέος αποκλειστικός λογαριασμός (προτείνεται) ή κάποιος υπάρχων.
-- Επιβεβαίωση: ειδοποίηση του agent με email (+ Sheet;), alerts σε Telegram.
-- Υπάρχει ήδη VPS ή στήνουμε νέο;
+- ~~Κανάλια~~: ο agent ειδοποιείται με email. Σε σένα πάνε μόνο σφάλματα, με email.
+- ~~VPS~~: το υπάρχον n8n στη Hostinger.
+- Η φόρμα του site έχει πεδίο τηλεφώνου.
