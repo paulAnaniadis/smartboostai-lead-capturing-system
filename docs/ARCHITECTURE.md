@@ -442,6 +442,8 @@ n8n/workflows/                ← exported workflows (W1–W7)
 
 ## 16. Πλάνο Φάσης 1
 
+**Πρόοδος:** ✅ βήματα 1–2 (schema, functions, lead-core, με tests). ⚠️ βήμα 3 μόνο με εικονικά emails (Σπιτόγατος + φόρμα site με πεδία όνομα, επίθετο, email, ενδιαφέρον, κρυφό πεδίο ακινήτου). ⏳ βήματα 4–7.
+
 1. **Schema και functions** (migrations), με tests για όλα τα σενάρια του §6: 0/1/2 matches, παράθυρο, returning, reprocess, placeholder, ταυτόχρονα ingestions.
 2. **lead-core:** normalization + generic parser + tests.
 3. **Fixtures και parsers** ανά portal και ανά φόρμα του πρώτου πελάτη.

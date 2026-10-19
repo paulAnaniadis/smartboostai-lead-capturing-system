@@ -1,0 +1,5 @@
+[
+  { "id": 1, "source": "spitogatos", "parser": "ignore", "match_from": ["newsletter@spitogatos.gr", "@news.spitogatos.gr"], "match_subject": null, "priority": 10 },
+  { "id": 2, "source": "spitogatos", "parser": "spitogatos_v1", "match_from": ["@spitogatos.gr"], "match_subject": null, "priority": 50 },
+  { "id": 3, "source": "website", "parser": "website_form_v1", "match_from": ["@demo-akinita.example"], "match_subject": "νέο μήνυμα από τη φόρμα|new form submission", "priority": 50 }
+]

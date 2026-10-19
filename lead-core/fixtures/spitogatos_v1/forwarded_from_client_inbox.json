@@ -1,0 +1,30 @@
+{
+  "description": "Ο πελάτης κάνει auto-forward από το inbox του. Το From είναι ο πελάτης· η πηγή βγαίνει από το εσωτερικό From του forward.",
+  "synthetic": true,
+  "payload": {
+    "gmail_id": "syn-sg-2",
+    "internal_date": "2026-10-19T09:30:00.000Z",
+    "headers": {
+      "message_id": "<syn-sg-2@demo-akinita.example>",
+      "from": "Demo Ακίνητα <info@demo-akinita.example>",
+      "reply_to": "info@demo-akinita.example",
+      "to": "leads+demo@example.com",
+      "delivered_to": ["leads+demo@example.com"],
+      "subject": "Fwd: Νέο μήνυμα για την αγγελία σας"
+    },
+    "text": "\n---------- Forwarded message ---------\nFrom: Spitogatos <noreply@spitogatos.gr>\nDate: Mon, 19 Oct 2026 at 12:29\nSubject: Νέο μήνυμα για την αγγελία σας\nTo: <info@demo-akinita.example>\n\nΈχετε νέο μήνυμα ενδιαφέροντος\n\nΟνοματεπώνυμο: Δημήτρης Αλεξίου\nΤηλέφωνο: 0030 6944 123456\nΚωδικός αγγελίας: 87654321\nΜήνυμα: Θα ήθελα να κανονίσουμε ραντεβού.\n",
+    "html": null,
+    "attachments": []
+  },
+  "expect": {
+    "action": "ingest",
+    "matchedBy": "forwarded_from",
+    "lead": {
+      "source": "spitogatos",
+      "phones": [{ "e164": "+306944123456", "raw": "0030 6944 123456" }],
+      "emails": [],
+      "property_refs": ["spitogatos:87654321"],
+      "context": { "forwarded": true }
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "description": "Newsletter του portal: route με parser=ignore.",
+  "synthetic": true,
+  "payload": {
+    "gmail_id": "syn-sg-3",
+    "internal_date": "2026-10-19T07:00:00.000Z",
+    "headers": {
+      "message_id": "<syn-sg-3@news.spitogatos.gr>",
+      "from": "Spitogatos <newsletter@spitogatos.gr>",
+      "to": "leads+demo@example.com",
+      "delivered_to": ["leads+demo@example.com"],
+      "subject": "Οι τάσεις της αγοράς αυτόν τον μήνα"
+    },
+    "text": "Διαβάστε τα νέα της αγοράς...",
+    "html": null,
+    "attachments": []
+  },
+  "expect": { "action": "ignore" }
+}

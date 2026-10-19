@@ -1,0 +1,19 @@
+{
+  "description": "Το template άλλαξε και καμία ετικέτα δεν αναγνωρίζεται: parse_failed, ποτέ insert με κενά.",
+  "synthetic": true,
+  "payload": {
+    "gmail_id": "syn-web-5",
+    "internal_date": "2026-10-19T12:00:00.000Z",
+    "headers": {
+      "message_id": "<syn-web-5@demo-akinita.example>",
+      "from": "wordpress@demo-akinita.example",
+      "to": "leads+demo@example.com",
+      "delivered_to": ["leads+demo@example.com"],
+      "subject": "Νέο μήνυμα από τη φόρμα επικοινωνίας"
+    },
+    "text": "Στοιχεία πελάτη\nΑλέξης Γεωργίου\n6971234502\nalexis.g@example.com\n\nΘέλω πληροφορίες.",
+    "html": null,
+    "attachments": []
+  },
+  "expect": { "action": "review", "kind": "parse_failed" }
+}

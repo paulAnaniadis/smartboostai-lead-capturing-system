@@ -1,0 +1,19 @@
+{
+  "description": "Email από το domain του site αλλά όχι από τη φόρμα (π.χ. ειδοποίηση WordPress): δεν ταιριάζει το subject, άρα unknown_sender.",
+  "synthetic": true,
+  "payload": {
+    "gmail_id": "syn-rt-2",
+    "internal_date": "2026-10-19T06:10:00.000Z",
+    "headers": {
+      "message_id": "<syn-rt-2@demo-akinita.example>",
+      "from": "wordpress@demo-akinita.example",
+      "to": "leads+demo@example.com",
+      "delivered_to": ["leads+demo@example.com"],
+      "subject": "[Demo Ακίνητα] Some plugins were automatically updated"
+    },
+    "text": "Howdy! Some plugins have automatically updated...",
+    "html": null,
+    "attachments": []
+  },
+  "expect": { "action": "review", "kind": "unknown_sender" }
+}

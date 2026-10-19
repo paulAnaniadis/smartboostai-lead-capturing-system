@@ -1,0 +1,30 @@
+{
+  "description": "Φόρμα site σε HTML πίνακα (ετικέτα | τιμή), με τηλέφωνο και κρυφό πεδίο URL σελίδας αντί για κωδικό.",
+  "synthetic": true,
+  "payload": {
+    "gmail_id": "syn-web-2",
+    "internal_date": "2026-10-19T09:00:00.000Z",
+    "headers": {
+      "message_id": "<syn-web-2@demo-akinita.example>",
+      "from": "noreply@demo-akinita.example",
+      "to": "leads+demo@example.com",
+      "delivered_to": ["leads+demo@example.com"],
+      "subject": "New form submission"
+    },
+    "text": null,
+    "html": "<html><head><style>td{padding:4px}</style></head><body><table><tr><td><strong>Όνομα</strong></td><td>Ελένη</td></tr><tr><td><strong>Επίθετο</strong></td><td>Νικολάου</td></tr><tr><td><strong>Email</strong></td><td><a href=\"mailto:eleni.n@example.com\">eleni.n@example.com</a></td></tr><tr><td><strong>Τηλέφωνο</strong></td><td>+30 697-123-4501</td></tr><tr><td><strong>Ενδιαφέρον</strong></td><td>Ενδιαφέρομαι για τη βίλα στο Πανόραμα.<br>Είναι διαθέσιμη για επίσκεψη το Σάββατο;</td></tr><tr><td><strong>URL</strong></td><td>https://www.demo-akinita.example/akinita/Villa-Panorama/?utm_source=fb</td></tr></table></body></html>",
+    "attachments": []
+  },
+  "expect": {
+    "action": "ingest",
+    "lead": {
+      "source": "website",
+      "first_name": "Ελένη",
+      "last_name": "Νικολάου",
+      "phones": [{ "e164": "+306971234501", "raw": "+30 697-123-4501" }],
+      "emails": [{ "value": "eleni.n@example.com", "raw": "eleni.n@example.com" }],
+      "message": "Ενδιαφέρομαι για τη βίλα στο Πανόραμα.\nΕίναι διαθέσιμη για επίσκεψη το Σάββατο;",
+      "property_refs": ["url:demo-akinita.example/akinita/villa-panorama"]
+    }
+  }
+}

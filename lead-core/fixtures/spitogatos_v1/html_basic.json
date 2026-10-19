@@ -1,0 +1,33 @@
+{
+  "description": "Ειδοποίηση Σπιτόγατου (ΕΙΚΟΝΙΚΟ template) σε HTML: ονοματεπώνυμο, τηλέφωνο, email, μήνυμα, link αγγελίας.",
+  "synthetic": true,
+  "payload": {
+    "gmail_id": "syn-sg-1",
+    "internal_date": "2026-10-19T08:30:00.000Z",
+    "headers": {
+      "message_id": "<syn-sg-1@mail.spitogatos.gr>",
+      "from": "Spitogatos <noreply@spitogatos.gr>",
+      "to": "leads+demo@example.com",
+      "delivered_to": ["leads+demo@example.com"],
+      "subject": "Νέο μήνυμα για την αγγελία σας"
+    },
+    "text": null,
+    "html": "<html><body><h2>Έχετε νέο μήνυμα ενδιαφέροντος</h2><p>Ονοματεπώνυμο: Μαρία Κωνσταντίνου</p><p>Τηλέφωνο: 698 123 4567</p><p>Email: maria.k@example.com</p><p>Μήνυμα: Γεια σας, ενδιαφέρομαι για το διαμέρισμα. Είναι ακόμα διαθέσιμο;</p><p><a href=\"https://www.spitogatos.gr/aggelia/12345678\">Δείτε την αγγελία</a></p></body></html>",
+    "attachments": []
+  },
+  "expect": {
+    "action": "ingest",
+    "matchedBy": "from",
+    "lead": {
+      "source": "spitogatos",
+      "full_name_raw": "Μαρία Κωνσταντίνου",
+      "first_name": "Μαρία",
+      "last_name": "Κωνσταντίνου",
+      "name_tokens": ["maria", "konstantinou"],
+      "phones": [{ "e164": "+306981234567", "raw": "698 123 4567" }],
+      "emails": [{ "value": "maria.k@example.com", "raw": "maria.k@example.com" }],
+      "message": "Γεια σας, ενδιαφέρομαι για το διαμέρισμα. Είναι ακόμα διαθέσιμο;",
+      "property_refs": ["spitogatos:12345678"]
+    }
+  }
+}

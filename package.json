@@ -1,0 +1,14 @@
+{
+  "name": "smartboostai-lead-capturing-system",
+  "private": true,
+  "type": "module",
+  "workspaces": ["lead-core"],
+  "scripts": {
+    "test": "npm run test:core && npm run test:db",
+    "test:core": "npm test -w lead-core",
+    "test:db": "scripts/test-db.sh"
+  },
+  "devDependencies": {
+    "pg": "^8.13.1"
+  }
+}

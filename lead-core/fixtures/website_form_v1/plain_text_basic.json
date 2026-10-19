@@ -1,0 +1,34 @@
+{
+  "description": "Φόρμα site σε απλό κείμενο: όνομα, επίθετο, email, ενδιαφέρον, κρυφό πεδίο κωδικού. Χωρίς τηλέφωνο.",
+  "synthetic": true,
+  "payload": {
+    "gmail_id": "syn-web-1",
+    "internal_date": "2026-10-19T08:15:00.000Z",
+    "headers": {
+      "message_id": "<syn-web-1@demo-akinita.example>",
+      "from": "Demo Ακίνητα <wordpress@demo-akinita.example>",
+      "reply_to": "Γιώργος Παπαδόπουλος <g.papadopoulos@example.com>",
+      "to": "leads+demo@example.com",
+      "delivered_to": ["leads+demo@example.com"],
+      "subject": "Νέο μήνυμα από τη φόρμα επικοινωνίας"
+    },
+    "text": "Όνομα: Γιώργος\nΕπίθετο: Παπαδόπουλος\nEmail: G.Papadopoulos@Example.com \nΕνδιαφέρον: Καλησπέρα, θα ήθελα να δω το διαμέρισμα στην Καλαμαριά.\nΜπορώ μετά τις 6;\nΚωδικός ακινήτου: kal-102\n\n-- \nΑυτό το e-mail στάλθηκε από τη φόρμα επικοινωνίας του Demo Ακίνητα",
+    "html": null,
+    "attachments": []
+  },
+  "expect": {
+    "action": "ingest",
+    "matchedBy": "from",
+    "lead": {
+      "source": "website",
+      "first_name": "Γιώργος",
+      "last_name": "Παπαδόπουλος",
+      "full_name_raw": "Γιώργος Παπαδόπουλος",
+      "name_tokens": ["giorgos", "papadopoulos"],
+      "phones": [],
+      "emails": [{ "value": "g.papadopoulos@example.com", "raw": "G.Papadopoulos@Example.com" }],
+      "message": "Καλησπέρα, θα ήθελα να δω το διαμέρισμα στην Καλαμαριά.\nΜπορώ μετά τις 6;",
+      "property_refs": ["site:KAL-102"]
+    }
+  }
+}

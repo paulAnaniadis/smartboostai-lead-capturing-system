@@ -1,0 +1,19 @@
+{
+  "description": "Ούτε τηλέφωνο ούτε email. Ο parser δεν αποφασίζει: το lead πάει στη βάση, που το στέλνει σε review (no_identifier).",
+  "synthetic": true,
+  "payload": {
+    "gmail_id": "syn-web-4",
+    "internal_date": "2026-10-19T11:00:00.000Z",
+    "headers": {
+      "message_id": "<syn-web-4@demo-akinita.example>",
+      "from": "wordpress@demo-akinita.example",
+      "to": "leads+demo@example.com",
+      "delivered_to": ["leads+demo@example.com"],
+      "subject": "Νέο μήνυμα από τη φόρμα επικοινωνίας"
+    },
+    "text": "Όνομα: Νίκος\nΕνδιαφέρον: Πόσο κοστίζει;",
+    "html": null,
+    "attachments": []
+  },
+  "expect": { "action": "ingest", "lead": { "phones": [], "emails": [], "full_name_raw": "Νίκος" } }
+}

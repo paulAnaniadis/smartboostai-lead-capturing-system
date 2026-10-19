@@ -1,0 +1,27 @@
+{
+  "description": "Τηλέφωνο με λάθος πλήθος ψηφίων: δεν μαντεύεται, μένει στο context. Το email αρκεί για identifier.",
+  "synthetic": true,
+  "payload": {
+    "gmail_id": "syn-web-3",
+    "internal_date": "2026-10-19T10:00:00.000Z",
+    "headers": {
+      "message_id": "<syn-web-3@demo-akinita.example>",
+      "from": "wordpress@demo-akinita.example",
+      "to": "leads+demo@example.com",
+      "delivered_to": ["leads+demo@example.com"],
+      "subject": "Νέο μήνυμα από τη φόρμα επικοινωνίας"
+    },
+    "text": "Όνομα: Κώστας\nΕπίθετο: Δημητρίου\nEmail: kostas.d@example.com\nΤηλέφωνο: 697 12 34 56\nΕνδιαφέρον: Γενική ερώτηση για οικόπεδα",
+    "html": null,
+    "attachments": []
+  },
+  "expect": {
+    "action": "ingest",
+    "lead": {
+      "phones": [],
+      "emails": [{ "value": "kostas.d@example.com", "raw": "kostas.d@example.com" }],
+      "property_refs": [],
+      "context": { "phones_unparsed": ["697 12 34 56"], "warning": "no_property_ref" }
+    }
+  }
+}

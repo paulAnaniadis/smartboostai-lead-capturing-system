@@ -1,0 +1,12 @@
+{
+  "name": "lead-core",
+  "version": "0.1.0",
+  "description": "Parsing και normalization για το Lead Capture System. Ντετερμινιστικό, χωρίς I/O.",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": { ".": "./src/index.js" },
+  "scripts": { "test": "node --test test/*.test.js" },
+  "dependencies": {
+    "libphonenumber-js": "^1.11.17"
+  }
+}
