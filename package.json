@@ -6,10 +6,11 @@
     "lead-core"
   ],
   "scripts": {
-    "test": "npm run test:core && npm run test:db",
+    "test": "npm run test:core && npm run test:n8n && npm run test:db",
     "test:core": "npm test -w lead-core",
     "test:db": "scripts/test-db.sh",
-    "build:n8n": "node scripts/build-n8n.mjs"
+    "build:n8n": "node scripts/build-n8n.mjs",
+    "test:n8n": "node scripts/build-n8n.mjs > /dev/null && node --test n8n/test/*.test.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.24.2",
