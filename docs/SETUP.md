@@ -21,7 +21,8 @@
 2. **SQL Editor** → τρέξε με αυτή τη σειρά το περιεχόμενο των αρχείων:
    1. `supabase/migrations/20261019000001_schema.sql`
    2. `supabase/migrations/20261019000002_functions.sql`
-   3. `supabase/setup/01_n8n_role.sql`: **πρώτα άλλαξε τον κωδικό** μέσα στο αρχείο.
+   3. `supabase/migrations/20261021000003_ignore_mail_without_client_address.sql`
+   4. `supabase/setup/01_n8n_role.sql`: **πρώτα άλλαξε τον κωδικό** μέσα στο αρχείο.
 3. **Connect → Session pooler**: κράτα host, port, database και project ref. Θα τα χρειαστείς στο βήμα 4.
 
 > Χρησιμοποίησε τον **Session pooler** και όχι τη Direct connection. Η direct σύνδεση του
@@ -29,7 +30,9 @@
 
 ## 2. Lead mailbox (Gmail)
 
-1. Φτιάξε **νέο, αποκλειστικό** λογαριασμό Gmail (π.χ. `smartboost.leads@gmail.com`), με 2FA.
+1. Λογαριασμός Gmail με **επαγγελματικό όνομα** (π.χ. `smartboost.leads@gmail.com`), με 2FA (επαλήθευση σε 2 βήματα).
+   Μπορεί να είναι και υπάρχων που δεν χρησιμοποιείς. Από αυτόν στέλνονται τα emails προς τους agents, οπότε το όνομα φαίνεται.
+   Δεν πειράζει αν λάβει άσχετα emails (spam κ.λπ.): ό,τι δεν πάει σε διεύθυνση πελάτη (`…+πελάτης@`) σώζεται και αγνοείται σιωπηλά.
 2. Στο Gmail φτιάξε ένα label με όνομα ακριβώς **`lead-captured`**.
    Το σύστημα βάζει αυτό το label σε κάθε email που έχει σωθεί στη βάση.
 3. Κάθε πελάτης έχει δική του διεύθυνση: `smartboost.leads+<πελάτης>@gmail.com`.

@@ -116,11 +116,21 @@ export function buildOpsAlerts({ heartbeat = [], staleReviews = [], report = nul
     });
   }
 
+  // Ένα alert ανά πελάτη και είδος (όχι ανά email), ώστε λίγα άσχετα emails να μη γεμίζουν το inbox σου.
+  const groups = new Map();
   for (const r of staleReviews) {
+    const k = `${r.client_slug ?? '-'}:${r.kind}`;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(r);
+  }
+  for (const [k, rs] of groups) {
+    const { client_slug: client, kind } = rs[0];
     alerts.push({
-      key: `stale_review:${r.review_id}`,
-      subject: `Lead περιμένει έλεγχο: ${r.kind} (${r.client_slug ?? 'χωρίς πελάτη'})`,
-      text: `Review #${r.review_id} (${r.kind}) για raw event #${r.raw_event_id} περιμένει πάνω από 4 ώρες.\n${r.note ?? ''}`,
+      key: `stale_review:${k}`,
+      subject: `${rs.length} email(s) περιμένουν έλεγχο: ${kind} (${client ?? 'χωρίς πελάτη'})`,
+      text: `${rs.length} γεγονότα περιμένουν απόφαση πάνω από 4 ώρες (${kind}).\n\n` +
+        rs.slice(0, 20).map((r) => `· review #${r.review_id} / raw #${r.raw_event_id}: ${r.note ?? ''}`).join('\n') +
+        (rs.length > 20 ? `\n… και ${rs.length - 20} ακόμα` : ''),
     });
   }
 

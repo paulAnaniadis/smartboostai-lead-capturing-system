@@ -49,6 +49,14 @@ test('alerts: μόνο ό,τι είναι πρόβλημα, με σταθερά 
     staleReviews: [{ review_id: 7, kind: 'parse_failed', client_slug: 'demo', raw_event_id: 99, note: 'x' }],
     report: { dead_raw_events: 0, dead_outbox: 1 },
   });
-  assert.deepEqual(alerts.map((a) => a.key), ['heartbeat:demo:spitogatos', 'stale_review:7', 'dead_outbox']);
+  assert.deepEqual(alerts.map((a) => a.key), ['heartbeat:demo:spitogatos', 'stale_review:demo:parse_failed', 'dead_outbox']);
   assert.deepEqual(buildOpsAlerts({ report: { dead_raw_events: 0, dead_outbox: 0 } }), []);
+});
+
+test('alerts: πολλά emails σε έλεγχο → ένα alert ανά πελάτη και είδος', () => {
+  const stale = [1, 2, 3].map((i) => ({ review_id: i, kind: 'unknown_sender', client_slug: 'demo', raw_event_id: i, note: 'spam' }));
+  stale.push({ review_id: 9, kind: 'unknown_sender', client_slug: 'other', raw_event_id: 9 });
+  const alerts = buildOpsAlerts({ staleReviews: stale });
+  assert.deepEqual(alerts.map((a) => a.key), ['stale_review:demo:unknown_sender', 'stale_review:other:unknown_sender']);
+  assert.match(alerts[0].subject, /^3 email/);
 });
