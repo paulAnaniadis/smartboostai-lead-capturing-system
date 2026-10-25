@@ -113,3 +113,10 @@ test('Όλα τα υπόλοιπα Code nodes φορτώνουν στο sandbox 
     }
   }
 });
+
+test('Capture → Collect saved ids: ένα αίτημα label για όλα τα emails', async () => {
+  const out = await runCodeNode(wf('1-capture-gmail.json'), 'Collect saved ids',
+    [{ gmail_id: 'a' }, { gmail_id: 'b' }, { gmail_id: 'a' }, { gmail_id: null }]);
+  assert.deepEqual(out, [{ ids: ['a', 'b'] }]);
+  assert.deepEqual(await runCodeNode(wf('1-capture-gmail.json'), 'Collect saved ids', []), []);
+});

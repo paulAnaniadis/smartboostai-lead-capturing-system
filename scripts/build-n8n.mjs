@@ -85,14 +85,18 @@ const pg = (query, params) => ['n8n-nodes-base.postgres', 2.6, {
 }];
 const p = (...exprs) => `[${exprs.map((e) => `${e} ?? null`).join(', ')}]`;
 
-const gmailHttp = (method, url, extra = {}) => ['n8n-nodes-base.httpRequest', 4.2, {
+const gmailHttp = (method, url, extra = {}, options = {}) => ['n8n-nodes-base.httpRequest', 4.2, {
   method,
   url,
   authentication: 'predefinedCredentialType',
   nodeCredentialType: 'gmailOAuth2',
   ...extra,
-  options: {},
+  options,
 }];
+// Το Gmail API κόβει πολλά ταυτόχρονα αιτήματα (429 «Too many concurrent requests»):
+// μικρές δόσεις με παύση, και επανάληψη αν η Google ζητήσει αναμονή.
+const GMAIL_BATCHING = { batching: { batch: { batchSize: 5, batchInterval: 1000 } } };
+const GMAIL_RETRY = { retryOnFail: true, maxTries: 3, waitBetweenTries: 5000 };
 
 const gmailSend = ({ to, subject, message, emailType = 'html', replyTo }) => ['n8n-nodes-base.gmail', 2.1, {
   resource: 'message',
@@ -125,7 +129,7 @@ return [{ json: {
   label_name: 'lead-captured',
   query: 'in:anywhere -in:trash -in:sent -in:drafts -label:lead-captured newer_than:30d',
 } }];`));
-  const labels = w.add('Get labels', ...gmailHttp('GET', `${GMAIL_API}/labels`), { credentials: CRED_GMAIL });
+  const labels = w.add('Get labels', ...gmailHttp('GET', `${GMAIL_API}/labels`), { credentials: CRED_GMAIL, ...GMAIL_RETRY });
   const findLabel = w.add('Find label', ...code(`const name = $('Config').first().json.label_name;
 const label = ($input.first().json.labels || []).find((l) => l.name === name);
 if (!label) throw new Error('Λείπει το Gmail label "' + name + '". Φτιάξ\\' το στο Gmail (βλ. docs/SETUP.md).');
@@ -136,7 +140,7 @@ return [{ json: { label_id: label.id } }];`));
       { name: 'q', value: "={{ $('Config').first().json.query }}" },
       { name: 'maxResults', value: '50' },
     ] },
-  }), { credentials: CRED_GMAIL });
+  }), { credentials: CRED_GMAIL, ...GMAIL_RETRY });
   const hc = w.add('Healthcheck enabled?', ...code(`const url = $('Config').first().json.healthcheck_url;
 return url ? [{ json: { url } }] : [];`), { y: 220, position: [1300, 220] });
   const ping = w.add('Ping healthcheck', 'n8n-nodes-base.httpRequest', 4.2, { url: '={{ $json.url }}', options: { timeout: 10000 } },
@@ -146,7 +150,7 @@ return msgs.map((m) => ({ json: { id: m.id } }));`));
   const get = w.add('Get email', ...gmailHttp('GET', `=${GMAIL_API}/messages/{{ $json.id }}`, {
     sendQuery: true,
     queryParameters: { parameters: [{ name: 'format', value: 'full' }] },
-  }), { credentials: CRED_GMAIL });
+  }, GMAIL_BATCHING), { credentials: CRED_GMAIL, ...GMAIL_RETRY });
   const prep = w.add('Prepare capture', ...code(withLeadCore(`const localPart = $('Config').first().json.lead_local_part;
 return $input.all().map((item) => {
   const a = LeadCore.captureArgsFromGmailMessage(item.json, { localPart });
@@ -159,13 +163,16 @@ return $input.all().map((item) => {
     'select raw_event_id, created, client_id, $6::text as gmail_id from leads.capture_raw_event($1, $2, $3, $4::timestamptz, $5::jsonb)',
     p('$json.channel', '$json.external_id', '$json.recipient', '$json.occurred_at', '$json.payload_json', '$json.gmail_id'),
   ), { credentials: CRED_PG });
-  const label = w.add('Label as captured', ...gmailHttp('POST', `=${GMAIL_API}/messages/{{ $json.gmail_id }}/modify`, {
+  // Ένα αίτημα για όλα τα emails (batchModify), όχι ένα ανά email.
+  const collect = w.add('Collect saved ids', ...code(`const ids = [...new Set($input.all().map((i) => i.json.gmail_id).filter(Boolean))];
+return ids.length ? [{ json: { ids } }] : [];`));
+  const label = w.add('Label as captured', ...gmailHttp('POST', `${GMAIL_API}/messages/batchModify`, {
     sendBody: true,
     specifyBody: 'json',
-    jsonBody: "={{ JSON.stringify({ addLabelIds: [$('Find label').first().json.label_id] }) }}",
-  }), { credentials: CRED_GMAIL });
+    jsonBody: "={{ JSON.stringify({ ids: $json.ids, addLabelIds: [$('Find label').first().json.label_id] }) }}",
+  }), { credentials: CRED_GMAIL, ...GMAIL_RETRY });
 
-  w.chain(t, cfg, labels, findLabel, list, split, get, prep, save, label);
+  w.chain(t, cfg, labels, findLabel, list, split, get, prep, save, collect, label);
   w.link(list, hc);
   w.link(hc, ping);
 });
