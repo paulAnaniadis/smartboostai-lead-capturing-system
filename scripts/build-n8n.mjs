@@ -325,13 +325,35 @@ return $input.all().filter((i) => i.json.send !== false).map((i, n) => ({ json: 
 // Γράψιμο, με το bundle μέσα στα Code nodes
 // ---------------------------------------------------------------------------
 
+// Το sandbox (vm2) του Code node στο n8n 1.x απενεργοποιεί το Object.setPrototypeOf (πετάει
+// «Operation not allowed on contextified object») και δεν έχει Proxy. Βιβλιοθήκες όπως το
+// libphonenumber-js χρησιμοποιούν το setPrototypeOf για δικούς τους τύπους σφαλμάτων.
+// Μέσα στο lead-core μόνο, το Object αντικαθίσταται από αντίγραφο όπου το setPrototypeOf
+// κάνει το ίδιο με το (επιτρεπτό) Reflect.setPrototypeOf.
+export function wrapForSandbox(bundle) {
+  return `const LeadCore = (function (Object) {
+${bundle.trim()}
+return LeadCore;
+})((function () {
+  const Native = globalThis.Object;
+  function ObjectShim(value) { return Native(value); }
+  for (const key of Reflect.ownKeys(Native)) {
+    if (['length', 'name', 'prototype', 'caller', 'arguments'].includes(key)) continue;
+    try { ObjectShim[key] = Native[key]; } catch (e) { /* μη αντιγράψιμο: παραλείπεται */ }
+  }
+  ObjectShim.prototype = Native.prototype;
+  ObjectShim.setPrototypeOf = function (o, proto) { Reflect.setPrototypeOf(o, proto); return o; };
+  return ObjectShim;
+})());`;
+}
+
 export async function buildWorkflows() {
   const bundle = readFileSync(await buildBundle(), 'utf8');
   const inject = (wf) => {
     for (const n of wf.nodes) {
       const js = n.parameters?.jsCode;
       if (js?.startsWith(BUNDLE_MARK)) {
-        n.parameters.jsCode = `// lead-core (παράγεται από scripts/build-n8n.mjs — μην το αλλάζεις με το χέρι)\n${bundle.trim()}\n// ---- τέλος lead-core ----\n\n${js.slice(BUNDLE_MARK.length + 1)}`;
+        n.parameters.jsCode = `// lead-core (παράγεται από scripts/build-n8n.mjs — μην το αλλάζεις με το χέρι)\n${wrapForSandbox(bundle)}\n// ---- τέλος lead-core ----\n\n${js.slice(BUNDLE_MARK.length + 1)}`;
       }
     }
     return wf;

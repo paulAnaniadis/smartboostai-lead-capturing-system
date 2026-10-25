@@ -78,10 +78,12 @@ test('capture: άγνωστος παραλήπτης → needs_review + unknown_
 });
 
 test('capture: email χωρίς διεύθυνση πελάτη (σκέτο mailbox) → σώζεται ως ignored, χωρίς review', async () => {
-  const r = await one(`select * from leads.capture_raw_event('gmail', $1, null, now(), '{}')`, [`<bare-${randomUUID()}@x>`]);
+  const r = await one(`select * from leads.capture_raw_event('gmail', $1, null, now(), $2)`,
+    [`<bare-${randomUUID()}@x>`, { headers: { from: 'a@b.c', subject: 'προσωπικό' }, text: 'ιδιωτικό περιεχόμενο', html: '<p>x</p>' }]);
   assert.equal(r.created, true);
-  const raw = await one(`select status, last_error from leads.raw_events where id = $1`, [r.raw_event_id]);
+  const raw = await one(`select status, last_error, payload from leads.raw_events where id = $1`, [r.raw_event_id]);
   assert.equal(raw.status, 'ignored');
+  assert.deepEqual(Object.keys(raw.payload), ['headers']);
   const rq = await q(`select 1 from leads.review_queue where raw_event_id = $1`, [r.raw_event_id]);
   assert.equal(rq.length, 0);
 });

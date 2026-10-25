@@ -13,6 +13,7 @@
     "test:n8n": "node scripts/build-n8n.mjs > /dev/null && node --test n8n/test/*.test.mjs"
   },
   "devDependencies": {
+    "@n8n/vm2": "^3.9.25",
     "esbuild": "^0.24.2",
     "pg": "^8.13.1"
   }

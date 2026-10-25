@@ -23,7 +23,8 @@
    2. `supabase/migrations/20261019000002_functions.sql`
    3. `supabase/migrations/20261021000003_ignore_mail_without_client_address.sql`
    4. `supabase/migrations/20261025000004_notify_mode.sql`
-   5. `supabase/setup/01_n8n_role.sql`: **πρώτα άλλαξε τον κωδικό** μέσα στο αρχείο.
+   5. `supabase/migrations/20261025000005_strip_ignored_payloads.sql`
+   6. `supabase/setup/01_n8n_role.sql`: **πρώτα άλλαξε τον κωδικό** μέσα στο αρχείο.
 3. **Connect → Session pooler**: κράτα host, port, database και project ref. Θα τα χρειαστείς στο βήμα 4.
 
 > Χρησιμοποίησε τον **Session pooler** και όχι τη Direct connection. Η direct σύνδεση του
