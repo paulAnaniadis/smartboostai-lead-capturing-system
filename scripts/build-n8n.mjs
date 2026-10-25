@@ -170,7 +170,8 @@ return ids.length ? [{ json: { ids } }] : [];`));
     sendBody: true,
     specifyBody: 'json',
     jsonBody: "={{ JSON.stringify({ ids: $json.ids, addLabelIds: [$('Find label').first().json.label_id] }) }}",
-  }), { credentials: CRED_GMAIL, ...GMAIL_RETRY });
+  // Το batchModify απαντάει με κενό σώμα αλλά Content-Type JSON: διάβασμα ως κείμενο.
+  }, { response: { response: { responseFormat: 'text' } } }), { credentials: CRED_GMAIL, ...GMAIL_RETRY });
 
   w.chain(t, cfg, labels, findLabel, list, split, get, prep, save, collect, label);
   w.link(list, hc);

@@ -276,7 +276,13 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ ids: $json.ids, addLabelIds: [$('Find label').first().json.label_id] }) }}",
-        "options": {}
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
       },
       "credentials": {
         "gmailOAuth2": {
