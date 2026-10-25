@@ -1,5 +1,5 @@
 import pkg from '../package.json' with { type: 'json' };
-import { bodyCandidates } from './email/text.js';
+import { bodyCandidates, extractAddresses } from './email/text.js';
 import { detectForward, routeEmail } from './email/route.js';
 import { runParser, ParseError } from './parsers/index.js';
 import { normalizeEmails, normalizeName, normalizePhones, messageHash } from './normalize.js';
@@ -40,7 +40,16 @@ export function normalizeCandidate(candidate, { source, parser, region = 'GR' })
  *   ignore  → leads.mark_raw_ignored(raw_event_id, reason, source)
  *   review  → leads.mark_raw_review(raw_event_id, kind, note, source, parser_version)
  */
+// Αποστολείς συστήματος που δεν είναι ποτέ leads, π.χ. η επιβεβαίωση που στέλνει η Google
+// όταν ο agent ορίζει προώθηση προς τη διεύθυνση του συστήματος. Το email μένει ορατό
+// στο Gmail του lead mailbox για να πατηθεί το link επιβεβαίωσης.
+const SYSTEM_SENDERS = [/^forwarding-noreply@google\.com$/i, /^mail-noreply@google\.com$/i];
+
 export function processEmail(payload, { client, routes }) {
+  const sender = extractAddresses(payload.headers?.from)[0] ?? '';
+  if (SYSTEM_SENDERS.some((re) => re.test(sender))) {
+    return { action: 'ignore', matchedBy: 'system_sender', source: null, reason: `system sender ${sender}` };
+  }
   const forward = detectForward(bodyCandidates(payload));
   const match = routeEmail(payload, routes ?? [], forward);
 

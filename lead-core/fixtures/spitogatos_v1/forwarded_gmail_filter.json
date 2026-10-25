@@ -1,0 +1,37 @@
+{
+  "description": "Ο agent έχει Gmail με φίλτρο «από spitogatos.gr → προώθηση». Η Google κρατάει τον αρχικό αποστολέα· To είναι ο agent, Delivered-To η διεύθυνση του συστήματος.",
+  "synthetic": true,
+  "payload": {
+    "gmail_id": "syn-sg-4",
+    "internal_date": "2026-10-25T09:00:00.000Z",
+    "headers": {
+      "message_id": "<syn-sg-4@mail.spitogatos.gr>",
+      "from": "Spitogatos <noreply@spitogatos.gr>",
+      "to": "karageorgiou@example.com",
+      "delivered_to": [
+        "leads+demo@example.com",
+        "karageorgiou@example.com"
+      ],
+      "subject": "Νέο μήνυμα για την αγγελία σας"
+    },
+    "text": "Ονοματεπώνυμο: Σοφία Λαμπράκη\nΤηλέφωνο: 6977 111 222\nEmail: sofia.l@example.com\nΚωδικός αγγελίας: 11223344\nΜήνυμα: Πότε μπορώ να το δω;",
+    "html": null,
+    "attachments": []
+  },
+  "expect": {
+    "action": "ingest",
+    "matchedBy": "from",
+    "lead": {
+      "source": "spitogatos",
+      "phones": [
+        {
+          "e164": "+306977111222",
+          "raw": "6977 111 222"
+        }
+      ],
+      "property_refs": [
+        "spitogatos:11223344"
+      ]
+    }
+  }
+}

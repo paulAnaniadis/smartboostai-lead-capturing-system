@@ -1,0 +1,40 @@
+{
+  "description": "Ο agent έχει Outlook/Hotmail με κανόνα «Προώθηση σε». Το From είναι ο agent· η πηγή βγαίνει από το block «Από:» του Outlook.",
+  "synthetic": true,
+  "payload": {
+    "gmail_id": "syn-sg-5",
+    "internal_date": "2026-10-25T09:30:00.000Z",
+    "headers": {
+      "message_id": "<syn-sg-5@outlook.example>",
+      "from": "Γιώργος Καραγεωργίου <karageorgiou@example.com>",
+      "to": "leads+demo@example.com",
+      "delivered_to": [
+        "leads+demo@example.com"
+      ],
+      "subject": "FW: Νέο μήνυμα για την αγγελία σας"
+    },
+    "text": "\n\n________________________________\nΑπό: Spitogatos <noreply@spitogatos.gr>\nΑπεστάλη: Σάββατο, 25 Οκτωβρίου 2026 12:29 μμ\nΠρος: karageorgiou@example.com\nΘέμα: Νέο μήνυμα για την αγγελία σας\n\nΟνοματεπώνυμο: Νίκος Βλάχος\nΤηλέφωνο: +30 694 555 6677\nΚωδικός αγγελίας: 55667788\nΜήνυμα: Ενδιαφέρομαι.\n",
+    "html": null,
+    "attachments": []
+  },
+  "expect": {
+    "action": "ingest",
+    "matchedBy": "forwarded_from",
+    "lead": {
+      "source": "spitogatos",
+      "phones": [
+        {
+          "e164": "+306945556677",
+          "raw": "+30 694 555 6677"
+        }
+      ],
+      "emails": [],
+      "property_refs": [
+        "spitogatos:55667788"
+      ],
+      "context": {
+        "forwarded": true
+      }
+    }
+  }
+}

@@ -19,8 +19,8 @@ const hoursLater = (h) => new Date(T0.getTime() + h * 3600_000).toISOString();
 async function newClient(region = 'GR') {
   const slug = `t-${randomUUID().slice(0, 8)}`;
   const c = await one(
-    `insert into leads.clients (slug, name, default_region, notify_emails)
-     values ($1, $1, $2, array['agent@example.com']) returning *`, [slug, region]);
+    `insert into leads.clients (slug, name, default_region, notify_emails, notify_mode)
+     values ($1, $1, $2, array['agent@example.com'], 'all') returning *`, [slug, region]);
   await q(`insert into leads.source_accounts (client_id, channel, identifier) values ($1, 'gmail', $2)`,
     [c.id, `leads+${slug}@example.com`]);
   await q(`insert into leads.email_routes (client_id, source, parser, match_from, priority)
@@ -331,6 +331,17 @@ test('outbox: claim δίνει έτοιμο item, sent δεν ξαναστέλν
   await q(`update leads.outbox set next_attempt_at = now() - interval '1 day' where id = $1`, [items[0].outbox_id]);
   const again = (await q(`select * from leads.claim_outbox(100)`)).filter((x) => x.item.client.id === c.id);
   assert.equal(again.length, 0);
+});
+
+test('notify_mode none (default): καταγραφή χωρίς ειδοποίηση στον agent', async () => {
+  const c = await newClient();
+  await q(`update leads.clients set notify_mode = 'none' where id = $1`, [c.id]);
+  const r = await ingest(c, lead({ phones: ['6981717171'], refs: ['spitogatos:5'] }));
+  assert.equal(r.status, 'processed');
+  assert.equal((await inquiriesOf(c)).length, 1);
+  assert.equal((await outboxOf(c)).length, 0);
+  const fresh = await one(`insert into leads.clients (slug, name) values ($1, $1) returning notify_mode`, [`t-${randomUUID().slice(0, 8)}`]);
+  assert.equal(fresh.notify_mode, 'none');
 });
 
 // ---------------------------------------------------------------------------

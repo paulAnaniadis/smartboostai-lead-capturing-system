@@ -1,19 +1,24 @@
 {
-  "description": "Email από άγνωστο αποστολέα (π.χ. επιβεβαίωση forwarding του Gmail): unknown_sender σε review.",
+  "description": "Email από άγνωστο αποστολέα σε διεύθυνση πελάτη (π.χ. ο κανόνας προώθησης του agent στέλνει κάτι άσχετο): unknown_sender σε review.",
   "synthetic": true,
   "payload": {
-    "gmail_id": "syn-rt-1",
-    "internal_date": "2026-10-19T06:00:00.000Z",
+    "gmail_id": "syn-rt-3",
+    "internal_date": "2026-10-25T06:00:00.000Z",
     "headers": {
-      "message_id": "<syn-rt-1@example.com>",
-      "from": "Gmail Team <forwarding-noreply@google.com>",
+      "message_id": "<syn-rt-3@example.com>",
+      "from": "Κάποιος <someone@random.example>",
       "to": "leads+demo@example.com",
-      "delivered_to": ["leads+demo@example.com"],
-      "subject": "Gmail Forwarding Confirmation"
+      "delivered_to": [
+        "leads+demo@example.com"
+      ],
+      "subject": "Προσφορά"
     },
-    "text": "Confirmation code: 123456789",
+    "text": "Καλησπέρα, σας στέλνω την προσφορά μας.",
     "html": null,
     "attachments": []
   },
-  "expect": { "action": "review", "kind": "unknown_sender" }
+  "expect": {
+    "action": "review",
+    "kind": "unknown_sender"
+  }
 }

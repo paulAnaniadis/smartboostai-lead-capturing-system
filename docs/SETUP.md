@@ -22,7 +22,8 @@
    1. `supabase/migrations/20261019000001_schema.sql`
    2. `supabase/migrations/20261019000002_functions.sql`
    3. `supabase/migrations/20261021000003_ignore_mail_without_client_address.sql`
-   4. `supabase/setup/01_n8n_role.sql`: **πρώτα άλλαξε τον κωδικό** μέσα στο αρχείο.
+   4. `supabase/migrations/20261025000004_notify_mode.sql`
+   5. `supabase/setup/01_n8n_role.sql`: **πρώτα άλλαξε τον κωδικό** μέσα στο αρχείο.
 3. **Connect → Session pooler**: κράτα host, port, database και project ref. Θα τα χρειαστείς στο βήμα 4.
 
 > Χρησιμοποίησε τον **Session pooler** και όχι τη Direct connection. Η direct σύνδεση του
@@ -93,25 +94,37 @@
 
 ## 7. Πρώτος πελάτης
 
-Στο `supabase/setup/02_client_template.sql` άλλαξε τις τιμές με `<…>` και τρέξ' το στο SQL Editor:
-- `notify_emails`: πού πάνε τα leads (email του agent ή των agents)
-- `identifier`: η plus-διεύθυνση, π.χ. `smartboost.leads+demo@gmail.com` (πεζά)
-- `match_from` του site: από ποια διεύθυνση στέλνει η φόρμα του site (συνήθως `wordpress@<domain>`)
+**Το σύστημα μπαίνει ΜΕΤΑ τον agent, όχι ανάμεσα.** Ο agent συνεχίζει να λαμβάνει τα leads
+στο email του όπως πάντα. Ένας κανόνας προώθησης στο δικό του inbox στέλνει **αντίγραφο** στη
+διεύθυνση του συστήματος (`<mailbox>+<πελάτης>@gmail.com`), και το σύστημα τα καταγράφει.
+Από προεπιλογή **δεν στέλνει τίποτα στον agent** (`notify_mode = 'none'`).
 
-Μετά, στο σύστημα του πελάτη:
-- **Σπιτόγατος:** στον λογαριασμό του portal, στο email ειδοποιήσεων μηνυμάτων, βάλε την plus-διεύθυνση.
-  Αν δεν γίνεται, κανόνας auto-forward από το inbox του πελάτη (το σύστημα αναγνωρίζει τα forwards).
-- **Φόρμα site:** παραλήπτης η plus-διεύθυνση. Πεδία: Όνομα, Επίθετο, Email, Τηλέφωνο, Ενδιαφέρον,
-  και **κρυφό πεδίο** «Κωδικός ακινήτου» (ή «URL») με τον κωδικό της σελίδας.
+### 7.1 Στη βάση
+Στο `supabase/setup/02_client_template.sql` άλλαξε τις τιμές με `<…>` και τρέξ' το.
+
+### 7.2 Κανόνας προώθησης στο inbox του agent
+Προώθηση **μόνο** των emails από τις πηγές (Σπιτόγατος, φόρμα site), **όχι όλου του inbox**:
+δεν θέλουμε τα προσωπικά emails του agent στο σύστημα.
+
+**Αν ο agent έχει Gmail**
+1. Ρυθμίσεις → Δείτε όλες τις ρυθμίσεις → **Προώθηση και POP/IMAP** → **Προσθήκη διεύθυνσης προώθησης** → `<mailbox>+<πελάτης>@gmail.com`.
+2. Η Google στέλνει email επιβεβαίωσης σε αυτή τη διεύθυνση. Θα το βρεις στο **δικό σου** lead mailbox: άνοιξέ το και πάτα το link. (Το σύστημα το αγνοεί αυτόματα.)
+3. **Μην** ενεργοποιήσεις «Προώθηση αντιγράφου όλων των εισερχόμενων». Αντί γι' αυτό: **Φίλτρα → Δημιουργία νέου φίλτρου** → Από: `spitogatos.gr OR <διεύθυνση-φόρμας-site>` → **Προώθηση σε** τη διεύθυνση του βήματος 1.
+
+**Αν ο agent έχει Outlook / Hotmail**
+1. Ρυθμίσεις → Αλληλογραφία → **Κανόνες** → Προσθήκη νέου κανόνα.
+2. Συνθήκη: **Από** περιέχει `spitogatos.gr` (και δεύτερη συνθήκη/κανόνας για τη φόρμα του site).
+3. Ενέργεια: **Ανακατεύθυνση σε** (προτιμάται, κρατάει τον αρχικό αποστολέα) ή **Προώθηση σε** → `<mailbox>+<πελάτης>@gmail.com`.
+
+**Φόρμα site (εναλλακτικά, χωρίς κανόνα):** στις ρυθμίσεις του plugin της φόρμας πρόσθεσε τη
+διεύθυνση του συστήματος ως **Bcc**. Ο agent λαμβάνει όπως πριν.
+
+Η φόρμα πρέπει να έχει: Όνομα, Επίθετο, Email, Τηλέφωνο, Ενδιαφέρον, και **κρυφό πεδίο**
+«Κωδικός ακινήτου» (ή «URL») με τον κωδικό της σελίδας.
 
 ## 8. Δοκιμή από άκρη σε άκρη
 
-1. Πρόσθεσε προσωρινό route για το δικό σου email:
-   ```sql
-   insert into leads.email_routes (client_id, source, parser, match_from, priority)
-   select id, 'website', 'website_form_v1', array['<το-email-σου>'], 1 from leads.clients where slug = 'demo';
-   ```
-2. Στείλε από το email σου στο `…+demo@gmail.com` ένα μήνυμα με σώμα:
+1. Στείλε από το email που έβαλες στο `match_from` προς `<mailbox>+demo@gmail.com` ένα μήνυμα με σώμα:
    ```
    Όνομα: Δοκιμή
    Επίθετο: Τεστ
@@ -120,12 +133,18 @@
    Ενδιαφέρον: Δοκιμαστικό μήνυμα
    Κωδικός ακινήτου: TEST-1
    ```
-3. Μέσα σε 1–3 λεπτά ο agent (`notify_emails`) λαμβάνει «Νέο lead: Δοκιμή Τεστ». Ξαναστείλε το ίδιο:
-   **δεν** πρέπει να έρθει δεύτερη ειδοποίηση, γιατί γίνεται touch στο υπάρχον inquiry.
-4. Σβήσε το προσωρινό route:
+2. Στο n8n τρέξε με το χέρι (**Execute workflow**): **1 Capture**, μετά **2 Process**.
+3. Στο SQL Editor της Supabase δες το lead:
    ```sql
-   delete from leads.email_routes where match_from = array['<το-email-σου>'];
+   select c.full_name_raw, ci.kind, ci.value_normalized, i.source, i.property_ref, i.message, i.touch_count
+   from leads.inquiries i
+   join leads.contacts c on c.id = i.contact_id
+   left join leads.contact_identifiers ci on ci.contact_id = c.id
+   order by i.id desc limit 20;
    ```
+   Πρέπει να δεις «Δοκιμή Τεστ», το τηλέφωνο σε μορφή `+3069…`, το email, `site:TEST-1`.
+4. Ξαναστείλε **το ίδιο** email και ξανατρέξε 1 και 2: **δεν** φτιάχνεται δεύτερο lead, το `touch_count` γίνεται 2.
+5. Αν όλα είναι σωστά, ενεργοποίησε (Active) τα workflows 1, 2, 3, 4.
 
 ## 9. Καθημερινή χρήση (μόνο όταν έρθει alert)
 
