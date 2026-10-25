@@ -368,10 +368,19 @@ export async function buildWorkflows() {
   mkdirSync(outDir, { recursive: true });
   const all = { '0-errors': errors, '1-capture-gmail': capture, '2-process': process_, '3-notify-agents': notify, '4-monitor': monitor };
   const written = [];
+  // Ο κώδικας κάθε Code node και σε χωριστό αρχείο (n8n/code/<workflow>/<node>.js), ώστε μια
+  // διόρθωση να περνάει με copy-paste σε ένα node, χωρίς νέο import του workflow.
+  const codeDir = join(root, 'n8n', 'code');
   for (const [file, wf] of Object.entries(all)) {
+    const built = inject(structuredClone(wf));
     const path = join(outDir, `${file}.json`);
-    writeFileSync(path, JSON.stringify(inject(structuredClone(wf)), null, 2) + '\n');
+    writeFileSync(path, JSON.stringify(built, null, 2) + '\n');
     written.push(path);
+    for (const n of built.nodes.filter((x) => x.type === 'n8n-nodes-base.code')) {
+      const slug = n.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      mkdirSync(join(codeDir, file), { recursive: true });
+      writeFileSync(join(codeDir, file, `${slug}.js`), n.parameters.jsCode + '\n');
+    }
   }
   return written;
 }
