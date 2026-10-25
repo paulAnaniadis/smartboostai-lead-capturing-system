@@ -1,0 +1,26 @@
+{
+  "description": "Από Outlook για iOS: η υπογραφή «Εστάλη από Outlook για iOS» δεν μπαίνει στο μήνυμα του lead.",
+  "synthetic": true,
+  "payload": {
+    "gmail_id": "syn-web-6",
+    "internal_date": "2026-10-25T21:00:00.000Z",
+    "headers": {
+      "message_id": "<syn-web-6@outlook.example>",
+      "from": "wordpress@demo-akinita.example",
+      "to": "leads+demo@example.com",
+      "delivered_to": ["leads+demo@example.com"],
+      "subject": "Νέο μήνυμα από τη φόρμα επικοινωνίας"
+    },
+    "text": "Όνομα: Δοκιμή\nΕπίθετο: Τεστ\nEmail: test.lead@example.com\nΤηλέφωνο: 6910029761\nΚωδικός ακινήτου: TEST-1\nΕνδιαφέρον: Θέλω να δω το διαμέρισμα\n\n\nΕστάλη από Outlook για iOS<https://aka.ms/o0ukef>\n",
+    "html": null,
+    "attachments": []
+  },
+  "expect": {
+    "action": "ingest",
+    "lead": {
+      "full_name_raw": "Δοκιμή Τεστ",
+      "message": "Θέλω να δω το διαμέρισμα",
+      "property_refs": ["site:TEST-1"]
+    }
+  }
+}

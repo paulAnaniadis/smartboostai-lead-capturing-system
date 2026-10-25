@@ -34,7 +34,10 @@ for (const [field, labels] of Object.entries(FIELD_SYNONYMS)) {
 const LABELED_LINE = /^([^:\t]{1,40}?)\s*(?::|\t)\s*(.*)$/;
 const SIGNATURE = /^--\s*$/;
 // Γραμμές που κλείνουν το μήνυμα (footers των form plugins). Κάθε parser προσθέτει δικές του.
-const DEFAULT_MESSAGE_STOP = [/^(sent from|this e-?mail was sent|στάλθηκε από|αυτό το e-?mail στάλθηκε)/i];
+const DEFAULT_MESSAGE_STOP = [
+  /^(sent from|sent via|get outlook for|this e-?mail was sent)/i,
+  /^(εστάλη από|στάλθηκε από|απεστάλη από|αποστολή από|λήψη του outlook|αυτό το e-?mail στάλθηκε)/i,
+];
 
 function labelOf(line) {
   const m = line.match(LABELED_LINE);
