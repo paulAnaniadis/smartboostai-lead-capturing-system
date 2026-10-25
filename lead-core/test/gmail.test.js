@@ -73,3 +73,32 @@ test('αποκωδικοποίηση χωρίς TextDecoder (sandbox του n8n)
   }
   assert.deepEqual([...base64UrlToBytes(b64url('ab?>'))], [...Buffer.from('ab?>')]);
 });
+
+test('Hotmail: δηλώνει iso-8859-7/windows-1253 αλλά το περιεχόμενο είναι UTF-8 → διαβάζεται σωστά', async () => {
+  const { decodeBytes, looksLikeUtf8 } = await import('../src/bytes.js');
+  const utf8 = Buffer.from('Όνομα: Δοκιμή\nΤηλέφωνο: 6971234560', 'utf8');
+  assert.equal(decodeBytes(utf8, 'iso-8859-7'), 'Όνομα: Δοκιμή\nΤηλέφωνο: 6971234560');
+  assert.equal(decodeBytes(utf8, 'windows-1253'), 'Όνομα: Δοκιμή\nΤηλέφωνο: 6971234560');
+  // Πραγματικό ISO-8859-7 δεν μπερδεύεται με UTF-8.
+  assert.equal(looksLikeUtf8(iso88597), false);
+  assert.equal(decodeBytes(iso88597, 'iso-8859-7'), 'Όνομα: Άννα');
+  // Σκέτο ASCII: δεν αλλάζει τίποτα.
+  assert.equal(decodeBytes(Buffer.from('Email: a@b.c'), 'iso-8859-7'), 'Email: a@b.c');
+});
+
+test('Gmail API μήνυμα από Hotmail (charset iso-8859-7, σώμα UTF-8) → σωστό lead', async () => {
+  const { processEmail } = await import('../src/index.js');
+  const m = structuredClone(message);
+  const body = 'Όνομα: Δοκιμή\nΕπίθετο: Τεστ\nEmail: test.lead@example.com\nΤηλέφωνο: 6971234560\nΕνδιαφέρον: Θέλω να δω το διαμέρισμα\nΚωδικός ακινήτου: TEST-1';
+  m.payload.headers = [{ name: 'From', value: '"Παύλος" <pavlos@hotmail.example>' }, { name: 'Delivered-To', value: 'leads+demo@example.com' }];
+  m.payload.parts = [{ mimeType: 'text/plain', headers: [{ name: 'Content-Type', value: 'text/plain; charset="iso-8859-7"' }],
+    body: { data: b64url(Buffer.from(body, 'utf8')) } }];
+  const args = captureArgsFromGmailMessage(m);
+  const d = processEmail(args.payload, { client: { default_region: 'GR' },
+    routes: [{ id: 1, source: 'website', parser: 'website_form_v1', match_from: ['pavlos@hotmail.example'], priority: 1 }] });
+  assert.equal(d.action, 'ingest');
+  assert.equal(d.lead.full_name_raw, 'Δοκιμή Τεστ');
+  assert.deepEqual(d.lead.phones.map((p) => p.e164), ['+306971234560']);
+  assert.equal(d.lead.message, 'Θέλω να δω το διαμέρισμα');
+  assert.deepEqual(d.lead.property_refs, ['site:TEST-1']);
+});

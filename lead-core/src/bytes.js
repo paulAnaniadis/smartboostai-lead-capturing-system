@@ -70,8 +70,33 @@ function singleByte(bytes, map80) {
   return out;
 }
 
+// Έγκυρο UTF-8 με τουλάχιστον έναν πολυbyte χαρακτήρα. Ελληνικό κείμενο σε ISO-8859-7 /
+// Windows-1253 σχεδόν ποτέ δεν είναι έγκυρο UTF-8 (π.χ. «Ό» = 0xBC, μόνο του byte συνέχειας).
+export function looksLikeUtf8(bytes) {
+  let multibyte = false;
+  for (let i = 0; i < bytes.length; i++) {
+    const b = bytes[i];
+    if (b < 0x80) continue;
+    let n;
+    if (b >= 0xc2 && b <= 0xdf) n = 1;
+    else if (b >= 0xe0 && b <= 0xef) n = 2;
+    else if (b >= 0xf0 && b <= 0xf4) n = 3;
+    else return false;
+    if (i + n >= bytes.length) return false; // κομμένος χαρακτήρας στο τέλος
+    for (let k = 1; k <= n; k++) {
+      if ((bytes[i + k] & 0xc0) !== 0x80) return false;
+    }
+    i += n;
+    multibyte = true;
+  }
+  return multibyte;
+}
+
 export function decodeBytes(bytes, charset = 'utf-8') {
   const cs = String(charset || 'utf-8').toLowerCase().replace(/^"|"$/g, '');
+  // Κάποιοι providers (π.χ. Hotmail/Outlook) δηλώνουν ελληνικό charset ενώ το περιεχόμενο,
+  // όπως το παραδίδει το Gmail API, είναι UTF-8. Αν είναι έγκυρο UTF-8, μετράει αυτό.
+  if (looksLikeUtf8(bytes)) return utf8Decode(bytes);
   if (cs === 'iso-8859-7' || cs === 'iso8859-7' || cs === 'greek') return greekSingleByte(bytes, false);
   if (cs === 'windows-1253' || cs === 'cp1253') return greekSingleByte(bytes, true);
   if (cs === 'windows-1252' || cs === 'cp1252') return singleByte(bytes, WIN_1252_80);
