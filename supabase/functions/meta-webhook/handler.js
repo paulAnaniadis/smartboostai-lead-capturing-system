@@ -80,7 +80,14 @@ export async function handleMetaWebhook(req, { appSecret, verifyToken, capture }
   if (req.method !== 'POST') return new Response('method not allowed', { status: 405 });
 
   const raw = await req.text();
-  if (!(await verifySignature(raw, req.headers.get('x-hub-signature-256'), appSecret))) {
+  const sigHeader = req.headers.get('x-hub-signature-256');
+  if (!(await verifySignature(raw, sigHeader, appSecret))) {
+    // Διάγνωση χωρίς να φαίνεται το secret: υπάρχει; τι μήκος έχει (το App Secret της Meta είναι 32);
+    // ήρθε υπογραφή;
+    console.warn('invalid signature', JSON.stringify({
+      secret_set: Boolean(appSecret), secret_length: appSecret.length,
+      signature_header: sigHeader ? sigHeader.slice(0, 7) : null, body_length: raw.length,
+    }));
     return new Response('invalid signature', { status: 401 });
   }
   let body;

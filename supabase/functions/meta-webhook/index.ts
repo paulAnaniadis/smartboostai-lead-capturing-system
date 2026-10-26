@@ -20,7 +20,7 @@ async function capture(ev: { channel: string; external_id: string; recipient: st
 }
 
 Deno.serve((req) => handleMetaWebhook(req, {
-  appSecret: Deno.env.get('META_APP_SECRET') ?? '',
-  verifyToken: Deno.env.get('META_VERIFY_TOKEN') ?? '',
+  appSecret: (Deno.env.get('META_APP_SECRET') ?? '').trim(),
+  verifyToken: (Deno.env.get('META_VERIFY_TOKEN') ?? '').trim(),
   capture,
 }));
