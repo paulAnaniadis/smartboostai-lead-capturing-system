@@ -120,3 +120,50 @@ test('Capture → Collect saved ids: ένα αίτημα label για όλα τ�
   assert.deepEqual(out, [{ ids: ['a', 'b'] }]);
   assert.deepEqual(await runCodeNode(wf('1-capture-gmail.json'), 'Collect saved ids', []), []);
 });
+
+// ---------------------------------------------------------------------------
+// Facebook
+// ---------------------------------------------------------------------------
+const fbLead = {
+  id: '1234567890123456', created_time: '2026-10-26T09:15:00+0000',
+  ad_id: '1202', ad_name: 'Βίλα', campaign_name: 'Q4', form_id: '987', platform: 'fb', is_organic: false,
+  field_data: [
+    { name: 'full_name', values: ['Ελένη Παπαδοπούλου'] },
+    { name: 'phone_number', values: ['+306977123456'] },
+    { name: 'email', values: ['eleni@example.com'] },
+  ],
+};
+
+test('Facebook → Decide: webhook χωρίς στοιχεία → fetch, poll με στοιχεία → ingest', async () => {
+  const out = await runCodeNode(wf('5-facebook.json'), 'Decide', [
+    { raw_event_id: 1, channel: 'fb_leadgen', payload: { via: 'webhook', leadgen_id: '55', page_id: '111' }, client: { default_region: 'GR' } },
+    { raw_event_id: 2, channel: 'fb_leadgen', payload: { via: 'poll', page_id: '111', lead: fbLead }, client: { default_region: 'GR' } },
+    {},
+  ]);
+  assert.deepEqual(out.map((o) => [o.raw_event_id, o.action, o.leadgen_id, o.page_id]),
+    [[1, 'fetch', '55', '111'], [2, 'ingest', null, '111']]);
+  const lead = JSON.parse(out[1].lead_json);
+  assert.deepEqual(lead.phones.map((x) => x.e164), ['+306977123456']);
+  assert.deepEqual(lead.property_refs, ['fb_ad:1202']);
+});
+
+test('Facebook → After fetch: lead από Graph API → ingest στο σωστό raw_event_id', async () => {
+  const out = await runCodeNode(wf('5-facebook.json'), 'After fetch', [fbLead, { id: 'x' }], {
+    'Only fetch': [{ raw_event_id: 7, region: 'GR' }, { raw_event_id: 8, region: 'GR' }],
+  });
+  assert.deepEqual(out.map((o) => [o.raw_event_id, o.action]), [[7, 'ingest'], [8, 'failed']]);
+});
+
+test('Facebook reconciliation → Split forms και Prepare capture', async () => {
+  const forms = await runCodeNode(wf('6-facebook-reconciliation.json'), 'Split forms',
+    [{ data: [{ id: 'f1', name: 'Φόρμα 1' }, { id: 'f2', name: 'Φόρμα 2' }] }],
+    { 'Facebook pages': [{ client_slug: 'demo', page_id: '111' }], 'Get page token': [{ access_token: 'PT' }] });
+  assert.deepEqual(forms.map((f) => [f.page_id, f.form_id, f.access_token]), [['111', 'f1', 'PT'], ['111', 'f2', 'PT']]);
+  assert.equal(JSON.parse(forms[0].filtering)[0].operator, 'GREATER_THAN');
+
+  const caps = await runCodeNode(wf('6-facebook-reconciliation.json'), 'Prepare capture', [{ data: [fbLead] }, { data: [] }],
+    { 'Split forms': forms });
+  assert.equal(caps.length, 1);
+  assert.deepEqual([caps[0].channel, caps[0].external_id, caps[0].recipient], ['fb_leadgen', '1234567890123456', '111']);
+  assert.equal(JSON.parse(caps[0].payload_json).lead.form_name, 'Φόρμα 1');
+});

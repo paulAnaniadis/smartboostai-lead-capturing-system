@@ -347,6 +347,63 @@ test('notify_mode none (default): καταγραφή χωρίς ειδοποίη
 });
 
 // ---------------------------------------------------------------------------
+// Πολλές πηγές: Σπιτόγατος + Facebook
+// ---------------------------------------------------------------------------
+
+test('ίδιος άνθρωπος από Σπιτόγατο και Facebook → ίδια επαφή (δύο ενδιαφέροντα χωρίς αντιστοίχιση)', async () => {
+  const c = await newClient();
+  const sg = await ingest(c, lead({ phones: ['6977 123 456'], refs: ['spitogatos:12345678'] }));
+  const fb = await ingest(c, lead({ phones: ['+306977123456'], emails: ['eleni@example.com'], source: 'facebook', refs: ['fb_ad:1202'] }),
+    { at: hoursLater(5) });
+  assert.equal(fb.contact_id, sg.contact_id);
+  assert.equal(fb.contact_created, false);
+  assert.equal((await inquiriesOf(c)).length, 2);
+  // το email από το Facebook προστέθηκε στην ίδια επαφή
+  const ids = await q(`select kind from leads.contact_identifiers where contact_id = $1 order by kind`, [sg.contact_id]);
+  assert.deepEqual(ids.map((i) => i.kind), ['email', 'phone']);
+});
+
+test('ίδιο ακίνητο από Σπιτόγατο και Facebook με αντιστοίχιση κωδικών → ΕΝΑ ενδιαφέρον (touch)', async () => {
+  const c = await newClient();
+  await q(`select leads.set_property_alias($1, 'spitogatos:12345678', 'site:KAL-102')`, [c.slug]);
+  await q(`select leads.set_property_alias($1, 'fb_ad:1202', 'site:KAL-102')`, [c.slug]);
+  const sg = await ingest(c, lead({ phones: ['6977123456'], refs: ['spitogatos:12345678'] }));
+  const fb = await ingest(c, lead({ phones: ['+306977123456'], source: 'facebook', refs: ['fb_ad:1202'] }), { at: hoursLater(5) });
+  assert.equal(fb.inquiries[0].action, 'touch');
+  assert.equal(fb.inquiries[0].id, sg.inquiries[0].id);
+  const [inq] = await inquiriesOf(c);
+  assert.equal(inq.property_ref, 'site:KAL-102');
+  assert.equal(inq.touch_count, 2);
+  assert.deepEqual(inq.context.source_refs, ['spitogatos:12345678']);
+  // Μετά από 48 ώρες από άλλη πηγή: επανερχόμενος για το ίδιο ακίνητο.
+  const later = await ingest(c, lead({ phones: ['6977123456'], source: 'facebook', refs: ['fb_ad:1202'] }), { at: hoursLater(60) });
+  assert.equal(later.inquiries[0].action, 'created');
+  assert.equal(later.inquiries[0].is_returning, true);
+});
+
+test('claim ανά κανάλι: το workflow των emails δεν παίρνει γεγονότα Facebook', async () => {
+  const c = await newClient();
+  await q(`insert into leads.source_accounts (client_id, channel, identifier) values ($1, 'fb_leadgen', $2)`, [c.id, `page-${c.slug}`]);
+  const fbRaw = await one(`select * from leads.capture_raw_event('fb_leadgen', $1, $2, now(), '{"via":"webhook"}')`,
+    [`lg-${randomUUID()}`, `page-${c.slug}`]);
+  assert.equal(fbRaw.client_id, c.id);
+  const gmailClaim = await q(`select raw_event_id from leads.claim_raw_events(100)`);
+  assert.ok(!gmailClaim.some((x) => x.raw_event_id === fbRaw.raw_event_id));
+  const fbClaim = await q(`select raw_event_id, routes from leads.claim_raw_events(100, interval '5 minutes', 'fb_leadgen')`);
+  const mine = fbClaim.find((x) => x.raw_event_id === fbRaw.raw_event_id);
+  assert.ok(mine);
+  assert.deepEqual(mine.routes, []);
+  const pages = await q(`select * from leads.fb_pages() where client_slug = $1`, [c.slug]);
+  assert.deepEqual(pages, [{ client_slug: c.slug, page_id: `page-${c.slug}` }]);
+});
+
+test('θύρα Meta: δέχεται μόνο fb_leadgen / whatsapp', async () => {
+  await assert.rejects(q(`select * from public.leads_capture_meta_event('gmail', 'x', 'y', now(), '{}')`), /not allowed/);
+  const r = await one(`select * from public.leads_capture_meta_event('fb_leadgen', $1, 'unknown-page', now(), '{}')`, [`lg-${randomUUID()}`]);
+  assert.equal(r.created, true);
+});
+
+// ---------------------------------------------------------------------------
 // Από άκρη σε άκρη: fixture email → lead-core → βάση
 // ---------------------------------------------------------------------------
 

@@ -182,7 +182,7 @@ const process_ = workflow('Leads · 2 Process', (w) => {
   const t = w.add('Every minute', ...schedule(1));
   const cfg = w.add('Config', ...code(`${CONFIG_HELP}
 return [{ json: { healthcheck_url: '' } }];`));
-  const claim = w.add('Claim events', ...pg('select * from leads.claim_raw_events(20)'),
+  const claim = w.add('Claim events', ...pg("select * from leads.claim_raw_events(20, interval '5 minutes', 'gmail')"),
     { credentials: CRED_PG, alwaysOutputData: true });
   const hc = w.add('Healthcheck enabled?', ...code(`const url = $('Config').first().json.healthcheck_url;
 return url ? [{ json: { url } }] : [];`), { position: [780, 220] });
@@ -268,6 +268,161 @@ const notify = workflow('Leads · 3 Notify agents', (w) => {
   { credentials: CRED_PG, position: [1300, 200] });
   w.chain(t, claim, render, send, sent);
   w.link(send, failed, 1);
+});
+
+// ---------------------------------------------------------------------------
+// Facebook Lead Ads
+// ---------------------------------------------------------------------------
+// Credential «Meta System User»: τύπος Query Auth, name = access_token, value = το System User token.
+const CRED_META = { httpQueryAuth: { id: 'REPLACE_META', name: 'Meta System User' } };
+const metaHttp = (url, extra = {}, options = {}) => ['n8n-nodes-base.httpRequest', 4.2, {
+  method: 'GET', url, authentication: 'genericCredentialType', genericAuthType: 'httpQueryAuth', ...extra, options,
+}];
+const plainHttp = (url, extra = {}, options = {}) => ['n8n-nodes-base.httpRequest', 4.2, { method: 'GET', url, ...extra, options }];
+const META_BATCHING = { batching: { batch: { batchSize: 5, batchInterval: 500 } } };
+const META_RETRY = { retryOnFail: true, maxTries: 3, waitBetweenTries: 5000 };
+const LEAD_FIELDS = 'id,created_time,field_data,ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,form_id,platform,is_organic';
+const FB_CONFIG = `// ΡΥΘΜΙΣΕΙΣ
+// graph_version: έκδοση του Graph API της Meta (δες developers.facebook.com/docs/graph-api/changelog)
+return [{ json: { graph_version: 'v23.0' } }];`;
+
+const facebook = workflow('Leads · 5 Facebook', (w) => {
+  const t = w.add('Every minute', ...schedule(1));
+  const cfg = w.add('Config', ...code(FB_CONFIG));
+  const claim = w.add('Claim events', ...pg("select * from leads.claim_raw_events(20, interval '5 minutes', 'fb_leadgen')"),
+    { credentials: CRED_PG, alwaysOutputData: true });
+  const decide = w.add('Decide', ...code(withLeadCore(`// Για κάθε γεγονός Facebook: ingest, ή πρώτα fetch από το Graph API.
+const out = [];
+for (const item of $input.all()) {
+  const ev = item.json;
+  if (!ev.raw_event_id) continue;
+  try {
+    const d = LeadCore.processFacebookLead(ev.payload, { client: ev.client });
+    out.push({ json: {
+      raw_event_id: ev.raw_event_id, action: d.action, leadgen_id: d.leadgen_id || null,
+      page_id: ev.payload && ev.payload.page_id ? String(ev.payload.page_id) : null,
+      region: ev.client && ev.client.default_region || 'GR',
+      lead_json: d.lead ? JSON.stringify(d.lead) : null,
+      kind: d.kind || null, note: d.note || null, source: d.source || 'facebook', parser_version: null,
+    } });
+  } catch (err) {
+    out.push({ json: { raw_event_id: ev.raw_event_id, action: 'failed', note: String(err && err.stack || err) } });
+  }
+}
+return out;`)));
+  const route = (action, name = `Only ${action}`) => w.add(name, ...code(`return $input.all().filter((i) => i.json.action === '${action}');`));
+  const onlyFetch = route('fetch');
+  const pageToken = w.add('Get page token', ...metaHttp(`=https://graph.facebook.com/{{ $('Config').first().json.graph_version }}/{{ $json.page_id }}`, {
+    sendQuery: true, queryParameters: { parameters: [{ name: 'fields', value: 'access_token' }] },
+  }, META_BATCHING), { credentials: CRED_META, ...META_RETRY, onError: 'continueErrorOutput' });
+  const fetchLead = w.add('Fetch lead', ...plainHttp(`=https://graph.facebook.com/{{ $('Config').first().json.graph_version }}/{{ $('Only fetch').item.json.leadgen_id }}`, {
+    sendQuery: true, queryParameters: { parameters: [
+      { name: 'fields', value: LEAD_FIELDS },
+      { name: 'access_token', value: '={{ $json.access_token }}' },
+    ] },
+  }, META_BATCHING), { ...META_RETRY, onError: 'continueErrorOutput' });
+  const afterFetch = w.add('After fetch', ...code(withLeadCore(`// Το lead ήρθε από το Graph API: ίδια απόφαση με όσα ήρθαν ήδη με στοιχεία.
+const src = $('Only fetch').all();
+return $input.all().map((item, i) => {
+  const ev = src[item.pairedItem?.item ?? i].json;
+  try {
+    const d = LeadCore.processFacebookLead({ lead: item.json }, { client: { default_region: ev.region } });
+    return { json: { raw_event_id: ev.raw_event_id, action: d.action === 'fetch' ? 'failed' : d.action,
+      lead_json: d.lead ? JSON.stringify(d.lead) : null, kind: d.kind || null,
+      note: d.action === 'fetch' ? 'Το Graph API δεν επέστρεψε field_data' : (d.note || null), source: 'facebook', parser_version: null } };
+  } catch (err) {
+    return { json: { raw_event_id: ev.raw_event_id, action: 'failed', note: String(err && err.stack || err) } };
+  }
+});`)));
+  const fetchErr = w.add('Fetch error', ...code(`// Σφάλμα Graph API (token, δικαιώματα, δίκτυο): retry με backoff, μετά dead + alert.
+const src = $('Only fetch').all();
+return $input.all().map((item, i) => ({ json: {
+  raw_event_id: src[item.pairedItem?.item ?? i]?.json.raw_event_id,
+  action: 'failed',
+  note: 'graph: ' + (item.json.error?.message || item.json.error?.description || JSON.stringify(item.json.error ?? item.json)),
+} }));`));
+  const onlyIngest = route('ingest');
+  const onlyReview = route('review');
+  const onlyFailed = route('failed');
+  const ingest = w.add('Ingest lead', ...pg('select $1::bigint as raw_event_id, leads.ingest_lead($1, $2::jsonb) as result',
+    p('$json.raw_event_id', '$json.lead_json')), { credentials: CRED_PG, onError: 'continueErrorOutput' });
+  const ingestErr = w.add('Ingest error', ...code(`return $input.all().map((item, i) => ({ json: {
+  raw_event_id: $('Only ingest').all()[item.pairedItem?.item ?? i]?.json.raw_event_id ?? item.json.raw_event_id,
+  action: 'failed',
+  note: 'ingest_lead: ' + (item.json.error?.message || item.json.error?.description || JSON.stringify(item.json.error ?? item.json)),
+} }));`));
+  const review = w.add('Mark review', ...pg('select leads.mark_raw_review($1, $2, $3, $4, $5)',
+    p('$json.raw_event_id', '$json.kind', '$json.note', '$json.source', '$json.parser_version')), { credentials: CRED_PG });
+  const failed = w.add('Mark failed', ...pg('select leads.mark_raw_failed($1, $2) as result',
+    p('$json.raw_event_id', '$json.note')), { credentials: CRED_PG });
+
+  w.chain(t, cfg, claim, decide);
+  for (const r of [onlyFetch, onlyIngest, onlyReview, onlyFailed]) w.link(decide, r);
+  w.chain(onlyFetch, pageToken, fetchLead, afterFetch);
+  w.link(pageToken, fetchErr, 1);
+  w.link(fetchLead, fetchErr, 1);
+  for (const r of [onlyIngest, onlyReview, onlyFailed]) w.link(afterFetch, r);
+  w.link(fetchErr, failed);
+  w.link(onlyIngest, ingest);
+  w.link(ingest, ingestErr, 1);
+  w.link(ingestErr, failed);
+  w.link(onlyReview, review);
+  w.link(onlyFailed, failed);
+});
+
+// Ανάκτηση όσων χάθηκαν (webhook που δεν ήρθε, Edge Function κάτω): κάθε 2 ώρες,
+// leads των τελευταίων 48 ωρών από κάθε φόρμα κάθε σελίδας. Όσα υπάρχουν ήδη απορρίπτονται
+// από το unique της βάσης (ίδιο external_id = leadgen_id).
+const fbReconcile = workflow('Leads · 6 Facebook reconciliation', (w) => {
+  const t = w.add('Every 2 hours', ...scheduleHours(2));
+  const cfg = w.add('Config', ...code(FB_CONFIG));
+  const pages = w.add('Facebook pages', ...pg('select * from leads.fb_pages()'), { credentials: CRED_PG });
+  const pageToken = w.add('Get page token', ...metaHttp(`=https://graph.facebook.com/{{ $('Config').first().json.graph_version }}/{{ $json.page_id }}`, {
+    sendQuery: true, queryParameters: { parameters: [{ name: 'fields', value: 'access_token' }] },
+  }, META_BATCHING), { credentials: CRED_META, ...META_RETRY });
+  const forms = w.add('Get forms', ...plainHttp(`=https://graph.facebook.com/{{ $('Config').first().json.graph_version }}/{{ $('Facebook pages').item.json.page_id }}/leadgen_forms`, {
+    sendQuery: true, queryParameters: { parameters: [
+      { name: 'fields', value: 'id,name,status' }, { name: 'limit', value: '100' },
+      { name: 'access_token', value: '={{ $json.access_token }}' },
+    ] },
+  }, META_BATCHING), { ...META_RETRY });
+  const splitForms = w.add('Split forms', ...code(`const pages = $('Facebook pages').all();
+const tokens = $('Get page token').all();
+const since = Math.floor(Date.now() / 1000) - 48 * 3600;
+const out = [];
+$input.all().forEach((item, i) => {
+  const idx = item.pairedItem?.item ?? i;
+  const page = pages[idx].json;
+  const token = tokens[idx].json.access_token;
+  for (const f of item.json.data || []) {
+    out.push({ json: { page_id: page.page_id, form_id: f.id, form_name: f.name, access_token: token,
+      filtering: JSON.stringify([{ field: 'time_created', operator: 'GREATER_THAN', value: since }]) } });
+  }
+});
+return out;`));
+  const leads = w.add('Get recent leads', ...plainHttp(`=https://graph.facebook.com/{{ $('Config').first().json.graph_version }}/{{ $json.form_id }}/leads`, {
+    sendQuery: true, queryParameters: { parameters: [
+      { name: 'fields', value: LEAD_FIELDS }, { name: 'limit', value: '100' },
+      { name: 'filtering', value: '={{ $json.filtering }}' },
+      { name: 'access_token', value: '={{ $json.access_token }}' },
+    ] },
+  }, META_BATCHING), { ...META_RETRY });
+  const prep = w.add('Prepare capture', ...code(withLeadCore(`const forms = $('Split forms').all();
+const out = [];
+$input.all().forEach((item, i) => {
+  const form = forms[item.pairedItem?.item ?? i].json;
+  for (const lead of item.json.data || []) {
+    const a = LeadCore.captureArgsFromPolledLead({ ...lead, form_name: form.form_name }, form.page_id);
+    out.push({ json: { channel: a.channel, external_id: a.external_id, recipient: a.recipient,
+      occurred_at: a.occurred_at, payload_json: JSON.stringify(a.payload) } });
+  }
+});
+return out;`)));
+  const save = w.add('Save raw event', ...pg(
+    'select raw_event_id, created from leads.capture_raw_event($1, $2, $3, $4::timestamptz, $5::jsonb)',
+    p('$json.channel', '$json.external_id', '$json.recipient', '$json.occurred_at', '$json.payload_json'),
+  ), { credentials: CRED_PG });
+  w.chain(t, cfg, pages, pageToken, forms, splitForms, leads, prep, save);
 });
 
 const monitor = workflow('Leads · 4 Monitor', (w) => {
@@ -367,7 +522,10 @@ export async function buildWorkflows() {
     return wf;
   };
   mkdirSync(outDir, { recursive: true });
-  const all = { '0-errors': errors, '1-capture-gmail': capture, '2-process': process_, '3-notify-agents': notify, '4-monitor': monitor };
+  const all = {
+    '0-errors': errors, '1-capture-gmail': capture, '2-process': process_, '3-notify-agents': notify, '4-monitor': monitor,
+    '5-facebook': facebook, '6-facebook-reconciliation': fbReconcile,
+  };
   const written = [];
   // Ο κώδικας κάθε Code node και σε χωριστό αρχείο (n8n/code/<workflow>/<node>.js), ώστε μια
   // διόρθωση να περνάει με copy-paste σε ένα node, χωρίς νέο import του workflow.

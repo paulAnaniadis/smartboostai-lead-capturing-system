@@ -26,6 +26,8 @@ export const normalizeLabel = (s) =>
   stripAccents(String(s).toLowerCase()).replace(/[*:]+\s*$/, '').replace(/\.$/, '').replace(/\s+/g, ' ').trim();
 
 const LABEL_INDEX = new Map();
+// Σε ποιο πεδίο αντιστοιχεί μια ετικέτα (ή null). Χρήσιμο και εκτός email (π.χ. φόρμες Facebook).
+export const fieldForLabel = (label) => LABEL_INDEX.get(normalizeLabel(label)) ?? null;
 for (const [field, labels] of Object.entries(FIELD_SYNONYMS)) {
   for (const l of labels) LABEL_INDEX.set(normalizeLabel(l), field);
 }

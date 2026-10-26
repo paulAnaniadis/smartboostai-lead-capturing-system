@@ -8,3 +8,4 @@ export { htmlToText } from './email/text.js';
 export { extractFields } from './email/fields.js';
 export { PARSERS, ParseError } from './parsers/index.js';
 export { renderAgentEmail, buildOpsAlerts, propertyLabel, sourceLabel } from './notify.js';
+export { parseFacebookLead, processFacebookLead, captureArgsFromLeadgenChange, captureArgsFromPolledLead } from './facebook.js';
