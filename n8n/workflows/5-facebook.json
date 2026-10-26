@@ -33,7 +33,7 @@
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "// ΡΥΘΜΙΣΕΙΣ\n// graph_version: έκδοση του Graph API της Meta (δες developers.facebook.com/docs/graph-api/changelog)\n// token_mode:\n//   'page'        → το credential «Meta System User» περιέχει token ΣΕΛΙΔΑΣ (δοκιμές / μία σελίδα)\n//   'system_user' → το credential περιέχει token System User, που ανταλλάσσεται με token κάθε σελίδας\nreturn [{ json: { graph_version: 'v23.0', token_mode: 'page' } }];"
+        "jsCode": "// ΡΥΘΜΙΣΕΙΣ\n// graph_version: έκδοση του Graph API της Meta (δες developers.facebook.com/docs/graph-api/changelog)\n// token_mode:\n//   'page'        → το credential «Meta System User» περιέχει token ΣΕΛΙΔΑΣ (δοκιμές / μία σελίδα)\n//   'system_user' → το credential περιέχει token System User, που ανταλλάσσεται με token κάθε σελίδας\nreturn [{ json: { graph_version: 'v26.0', token_mode: 'page' } }];"
       }
     },
     {
