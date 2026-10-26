@@ -54,6 +54,10 @@ SQL Editor → τρέξε `supabase/migrations/20261026000006_facebook_and_prope
    - Callback URL: το URL του βήματος 4.6
    - Verify token: το `META_VERIFY_TOKEN`
    → **Verify and save**. Αν αποτύχει, έλεγξε ότι το JWT verification είναι OFF.
+   Το Verify token είναι η λέξη του `META_VERIFY_TOKEN`, **όχι** κάποιο access token.
+   Μετά πάτα **Test → Send to My Server** στο `leadgen`. Αν στα Invocations βγαίνει **401**, το `META_APP_SECRET`
+   είναι λάθος: στα Logs η γραμμή `invalid signature` δείχνει `secret_length`, που πρέπει να είναι **32**
+   (το App ID ή το verify token δίνουν άλλο μήκος).
 2. Στο ίδιο σημείο: πεδίο **`leadgen` → Subscribe**.
 3. Για **κάθε Σελίδα πελάτη**, μία φορά: στο Graph API Explorer με page token της Σελίδας,
    `POST /{page_id}/subscribed_apps?subscribed_fields=leadgen`. Πρέπει να απαντήσει `{"success": true}`.
@@ -84,6 +88,19 @@ select leads.set_property_alias('<πελάτης>', 'spitogatos:<κωδικός 
 **της ίδιας επαφής**.
 
 ## 8. Δοκιμή
+
+**App σε Development mode** (χωρίς Business verification): η Meta στέλνει μόνο τα Test του dashboard, όχι τα
+πραγματικά leads. Για δοκιμή, φτιάξε lead με το Testing Tool, βρες το ID του στον Graph API Explorer
+(με page token: `me/leadgen_forms` → `<form_id>/leads`) και κατέγραψέ το με το χέρι:
+```sql
+select r.* from leads.source_accounts s,
+lateral leads.capture_raw_event('fb_leadgen', '<lead_id>', s.identifier, now(),
+  jsonb_build_object('via','manual','leadgen_id','<lead_id>','page_id', s.identifier)) r
+where s.channel = 'fb_leadgen' and s.identifier = '<page_id>';
+```
+Το workflow 5 το φέρνει και το καταχωρεί όπως θα έκανε με το webhook.
+
+**Κανονική ροή:**
 1. https://developers.facebook.com/tools/lead-ads-testing → διάλεξε Σελίδα και φόρμα → **Create lead**.
 2. Σε 1–2 λεπτά:
    ```sql
