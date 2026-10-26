@@ -284,7 +284,10 @@ const META_RETRY = { retryOnFail: true, maxTries: 3, waitBetweenTries: 5000 };
 const LEAD_FIELDS = 'id,created_time,field_data,ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,form_id,platform,is_organic';
 const FB_CONFIG = `// ΡΥΘΜΙΣΕΙΣ
 // graph_version: έκδοση του Graph API της Meta (δες developers.facebook.com/docs/graph-api/changelog)
-return [{ json: { graph_version: 'v23.0' } }];`;
+// token_mode:
+//   'page'        → το credential «Meta System User» περιέχει token ΣΕΛΙΔΑΣ (δοκιμές / μία σελίδα)
+//   'system_user' → το credential περιέχει token System User, που ανταλλάσσεται με token κάθε σελίδας
+return [{ json: { graph_version: 'v23.0', token_mode: 'page' } }];`;
 
 const facebook = workflow('Leads · 5 Facebook', (w) => {
   const t = w.add('Every minute', ...schedule(1));
@@ -312,6 +315,12 @@ for (const item of $input.all()) {
 return out;`)));
   const route = (action, name = `Only ${action}`) => w.add(name, ...code(`return $input.all().filter((i) => i.json.action === '${action}');`));
   const onlyFetch = route('fetch');
+  // Δύο δρόμοι ανάλογα με το token_mode του Config.
+  const viaPage = w.add('Token mode: page', ...code(`return $('Config').first().json.token_mode === 'system_user' ? [] : $input.all();`));
+  const viaSystem = w.add('Token mode: system user', ...code(`return $('Config').first().json.token_mode === 'system_user' ? $input.all() : [];`));
+  const fetchDirect = w.add('Fetch lead (page token)', ...metaHttp(`=https://graph.facebook.com/{{ $('Config').first().json.graph_version }}/{{ $json.leadgen_id }}`, {
+    sendQuery: true, queryParameters: { parameters: [{ name: 'fields', value: LEAD_FIELDS }] },
+  }, META_BATCHING), { credentials: CRED_META, ...META_RETRY, onError: 'continueErrorOutput' });
   const pageToken = w.add('Get page token', ...metaHttp(`=https://graph.facebook.com/{{ $('Config').first().json.graph_version }}/{{ $json.page_id }}`, {
     sendQuery: true, queryParameters: { parameters: [{ name: 'fields', value: 'access_token' }] },
   }, META_BATCHING), { credentials: CRED_META, ...META_RETRY, onError: 'continueErrorOutput' });
@@ -358,7 +367,11 @@ return $input.all().map((item, i) => ({ json: {
 
   w.chain(t, cfg, claim, decide);
   for (const r of [onlyFetch, onlyIngest, onlyReview, onlyFailed]) w.link(decide, r);
-  w.chain(onlyFetch, pageToken, fetchLead, afterFetch);
+  w.link(onlyFetch, viaPage);
+  w.link(onlyFetch, viaSystem);
+  w.chain(viaPage, fetchDirect, afterFetch);
+  w.chain(viaSystem, pageToken, fetchLead, afterFetch);
+  w.link(fetchDirect, fetchErr, 1);
   w.link(pageToken, fetchErr, 1);
   w.link(fetchLead, fetchErr, 1);
   for (const r of [onlyIngest, onlyReview, onlyFailed]) w.link(afterFetch, r);

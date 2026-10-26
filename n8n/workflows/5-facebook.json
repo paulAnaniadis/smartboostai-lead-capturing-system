@@ -33,7 +33,7 @@
       "parameters": {
         "mode": "runOnceForAllItems",
         "language": "javaScript",
-        "jsCode": "// ΡΥΘΜΙΣΕΙΣ\n// graph_version: έκδοση του Graph API της Meta (δες developers.facebook.com/docs/graph-api/changelog)\nreturn [{ json: { graph_version: 'v23.0' } }];"
+        "jsCode": "// ΡΥΘΜΙΣΕΙΣ\n// graph_version: έκδοση του Graph API της Meta (δες developers.facebook.com/docs/graph-api/changelog)\n// token_mode:\n//   'page'        → το credential «Meta System User» περιέχει token ΣΕΛΙΔΑΣ (δοκιμές / μία σελίδα)\n//   'system_user' → το credential περιέχει token System User, που ανταλλάσσεται με token κάθε σελίδας\nreturn [{ json: { graph_version: 'v23.0', token_mode: 'page' } }];"
       }
     },
     {
@@ -91,12 +91,85 @@
       }
     },
     {
+      "id": "33389db9-62e0-4892-aba3-0602a6f65018",
+      "name": "Token mode: page",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1300,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "return $('Config').first().json.token_mode === 'system_user' ? [] : $input.all();"
+      }
+    },
+    {
+      "id": "b5bbbdd7-26a9-43ca-adf6-38e5fc881e79",
+      "name": "Token mode: system user",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "return $('Config').first().json.token_mode === 'system_user' ? $input.all() : [];"
+      }
+    },
+    {
+      "id": "f7aea0ef-4e14-4f7e-aa95-2a9523f69e57",
+      "name": "Fetch lead (page token)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1820,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://graph.facebook.com/{{ $('Config').first().json.graph_version }}/{{ $json.leadgen_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "fields",
+              "value": "id,created_time,field_data,ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,form_id,platform,is_organic"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 5,
+              "batchInterval": 500
+            }
+          }
+        }
+      },
+      "credentials": {
+        "httpQueryAuth": {
+          "id": "REPLACE_META",
+          "name": "Meta System User"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueErrorOutput"
+    },
+    {
       "id": "9f1c80f8-41c4-4b52-a9c5-ba3707575680",
       "name": "Get page token",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1300,
+        2080,
         0
       ],
       "parameters": {
@@ -139,7 +212,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1560,
+        2340,
         0
       ],
       "parameters": {
@@ -178,7 +251,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1820,
+        2600,
         0
       ],
       "parameters": {
@@ -193,7 +266,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2080,
+        2860,
         0
       ],
       "parameters": {
@@ -208,7 +281,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2340,
+        3120,
         0
       ],
       "parameters": {
@@ -223,7 +296,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2600,
+        3380,
         0
       ],
       "parameters": {
@@ -238,7 +311,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2860,
+        3640,
         0
       ],
       "parameters": {
@@ -253,7 +326,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        3120,
+        3900,
         0
       ],
       "parameters": {
@@ -278,7 +351,7 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        3380,
+        4160,
         0
       ],
       "parameters": {
@@ -293,7 +366,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        3640,
+        4420,
         0
       ],
       "parameters": {
@@ -317,7 +390,7 @@
       "type": "n8n-nodes-base.postgres",
       "typeVersion": 2.6,
       "position": [
-        3900,
+        4680,
         0
       ],
       "parameters": {
@@ -397,6 +470,51 @@
       ]
     },
     "Only fetch": {
+      "main": [
+        [
+          {
+            "node": "Token mode: page",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Token mode: system user",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token mode: page": {
+      "main": [
+        [
+          {
+            "node": "Fetch lead (page token)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch lead (page token)": {
+      "main": [
+        [
+          {
+            "node": "After fetch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token mode: system user": {
       "main": [
         [
           {
